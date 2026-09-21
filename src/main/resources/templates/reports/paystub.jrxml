@@ -1,0 +1,564 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="paystub" pageWidth="612" pageHeight="792" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="dc63626b-5de4-4698-babc-77d9b9a26700">
+	<property name="ireport.zoom" value="2.0"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<parameter name="id" class="java.lang.String">
+		<defaultValueExpression><![CDATA[]]></defaultValueExpression>
+	</parameter>
+	<parameter name="year" class="java.lang.String">
+		<defaultValueExpression><![CDATA[]]></defaultValueExpression>
+	</parameter>
+	<parameter name="month" class="java.lang.String">
+		<defaultValueExpression><![CDATA[]]></defaultValueExpression>
+	</parameter>
+	<parameter name="day" class="java.lang.String">
+		<defaultValueExpression><![CDATA[]]></defaultValueExpression>
+	</parameter>
+	<parameter name="nit" class="java.lang.String"/>
+	<parameter name="logo" class="java.lang.String"/>
+	<queryString>
+		<![CDATA[select
+    t.cedula,
+    t.nombre,
+    t.apellido1,
+    t.apellido2,
+    t.correoElectronico,
+    t.salarioBasico,
+    t.fechaIngreso,
+    t.nombreCargo,
+    t.nombreBanco,
+    t.cuentaBanco,
+    t.nombreBanco,
+    t.nombreEPS,
+    t.pension,
+    t.cesantias,
+    t.nombreNomina,
+    t.periodo,
+    t.diasHabiles,
+    cast(sum(t.diasLiq) as int) as diasLiq,
+    t.cod_con as codigoConceptos,
+    t.conceptos,
+    CASE WHEN sum(t.debito) <> 0 THEN cast(sum(t.debito) as numeric(18,0)) END as debit,
+    CASE WHEN sum(t.credito) <> 0 THEN cast(sum(t.credito) as numeric(18,0)) END as credit
+from (
+    select distinct
+        e.cod_emp as cedula,
+        nom_emp as nombre,
+        ap1_emp as apellido1,
+        ap2_emp as apellido2,
+        e_mail as correoElectronico,
+        e.sal_bas as salarioBasico,
+        cast(fec_ing as date) as fechaIngreso,
+        nom_car as nombreCargo,
+        cta_ban as cuentaBanco,
+        nom_ban as nombreBanco,
+        f.nom_fdo as nombreEPS,
+        fn.nom_fdo as pension,
+        fnd.nom_fdo as cesantias,
+        'NOMINA MES DE '+upper(datename(mm, d.fch_doc))+' '+rtrim(cast(year(d.fch_doc) as char(4))) as nombreNomina,
+        cast(d.fch_doc as date) as periodo,
+        d.deb_mov as debito,
+        d.cre_mov as credito,
+        (select Dia_per_cau from rhh_ConsVaca where cod_emp = e.cod_emp and year(fec_fin_cau) = $P{year} and month(fec_fin_cau) = $P{month}) as diasHabiles,
+        left(rtrim(d.des_con)+replicate(' ',40), 40) as conceptos,
+        l.can_liq as diasLiq,
+        d.cod_con
+    from rhh_emplea e
+    inner join rhh_cargos c on e.cod_car = c.cod_car
+    inner join gen_bancos b on b.cod_ban = e.cod_ban
+    inner join rhh_tbfondos f on f.cod_fdo = e.fdo_sal
+    inner join rhh_tbfondos fn on fn.cod_fdo = e.fdo_pen
+    inner join rhh_tbfondos fnd on fnd.cod_fdo = e.fdo_ces
+    inner join rhh_intconta_detalle d on d.cod_emp = e.cod_emp
+    inner join rhh_pagvaca v on d.cod_emp = e.cod_emp
+    left join rhh_liqhis l on d.cod_con = l.cod_con
+        and d.fec_cte = l.fec_cte
+        and d.num_doc = l.num_doc
+        and d.cod_emp = l.cod_emp
+        and d.idl_num = l.idl_num
+        and d.mod_liq = l.mod_liq
+        and d.tip_liq = l.tip_liq
+        and d.cod_suc = l.cod_suc
+        and d.cod_cco = l.cod_cco
+        and d.num_doc = l.num_doc
+        -- and d.cre_mov = l.val_liq
+    where
+        e.cod_emp = $P{id}
+        and year(d.fch_doc) = $P{year}
+        and month(d.fch_doc) = $P{month}
+        and day(d.fch_doc) = $P{day}
+        and d.des_con <> 'Neto a Pagar'
+    group by
+        e.cod_emp,
+        nom_emp,
+        ap1_emp,
+        ap2_emp,
+        e_mail,
+        e.sal_bas,
+        fec_ing,
+        nom_car,
+        cta_ban,
+        nom_ban,
+        f.nom_fdo,
+        fn.nom_fdo,
+        fnd.nom_fdo,
+        d.fch_doc,
+        d.des_con,
+        l.can_liq,
+        d.deb_mov,
+        d.cre_mov,
+        d.cod_con,
+        v.dia_hab
+) as t
+group by
+    t.conceptos,
+    t.cedula,
+    t.nombre,
+    t.apellido1,
+    t.apellido2,
+    t.correoElectronico,
+    t.salarioBasico,
+    t.fechaIngreso,
+    t.nombreCargo,
+    t.nombreBanco,
+    t.cuentaBanco,
+    t.nombreBanco,
+    t.nombreEPS,
+    t.pension,
+    t.cesantias,
+    t.nombreNomina,
+    t.periodo,
+    t.cod_con,
+    t.diasHabiles
+having
+    sum(t.debito) - sum(t.credito) <> 0
+order by
+    case
+        when sum(t.debito) > sum(t.credito) then 0 else 1
+    end,
+    20,
+    19 asc;]]>
+	</queryString>
+	<field name="cedula" class="java.lang.String"/>
+	<field name="nombre" class="java.lang.String"/>
+	<field name="apellido1" class="java.lang.String"/>
+	<field name="apellido2" class="java.lang.String"/>
+	<field name="correoElectronico" class="java.lang.String"/>
+	<field name="salarioBasico" class="java.math.BigDecimal"/>
+	<field name="fechaIngreso" class="java.sql.Date"/>
+	<field name="nombreCargo" class="java.lang.String"/>
+	<field name="nombreBanco" class="java.lang.String"/>
+	<field name="cuentaBanco" class="java.lang.String"/>
+	<field name="nombreEPS" class="java.lang.String"/>
+	<field name="pension" class="java.lang.String"/>
+	<field name="cesantias" class="java.lang.String"/>
+	<field name="nombreNomina" class="java.lang.String"/>
+	<field name="periodo" class="java.sql.Date"/>
+	<field name="diasHabiles" class="java.math.BigDecimal"/>
+	<field name="diasLiq" class="java.lang.Integer"/>
+	<field name="codigoConceptos" class="java.lang.String"/>
+	<field name="conceptos" class="java.lang.String"/>
+	<field name="debit" class="java.math.BigDecimal"/>
+	<field name="credit" class="java.math.BigDecimal"/>
+	<variable name="sumaDebitos" class="java.math.BigDecimal" calculation="Sum">
+		<variableExpression><![CDATA[$F{debit}]]></variableExpression>
+	</variable>
+	<variable name="sumaCreditos" class="java.math.BigDecimal" calculation="Sum">
+		<variableExpression><![CDATA[$F{credit}]]></variableExpression>
+	</variable>
+	<variable name="total" class="java.math.BigDecimal" calculation="Sum">
+		<variableExpression><![CDATA[]]></variableExpression>
+	</variable>
+	<title>
+		<band splitType="Stretch"/>
+	</title>
+	<pageHeader>
+		<band height="72" splitType="Stretch">
+			<staticText>
+				<reportElement x="185" y="14" width="175" height="53" uuid="2bfd9444-829a-4e7d-a1b1-2ad0d3b181f1">
+					<printWhenExpression><![CDATA[$P{logo}.equals("3")]]></printWhenExpression>
+				</reportElement>
+				<textElement textAlignment="Center">
+					<font fontName="SansSerif" size="11" isBold="true" isItalic="false" isUnderline="false" isStrikeThrough="false"/>
+				</textElement>
+				<text><![CDATA[IGB MOTORCYCLE PARTS S.A.S 811011909-9]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Transparent" x="0" y="51" width="572" height="16" uuid="f9ec1dd7-9965-4847-b8bb-2bdf0364b91d"/>
+				<textElement textAlignment="Center">
+					<font fontName="SansSerif" size="11" isBold="true"/>
+				</textElement>
+				<text><![CDATA[COMPROBANTE DE PAGO]]></text>
+			</staticText>
+			<image>
+				<reportElement x="50" y="14" width="97" height="50" uuid="971b8a36-888f-4e6f-aad4-83b5cd61dcfa">
+					<printWhenExpression><![CDATA[$P{logo}.equals("4")]]></printWhenExpression>
+				</reportElement>
+				<imageExpression><![CDATA["/home/administrator/wildfly-10.1.0.Final/standalone/deployments/shared.war/images/logo/logo-mr.png"]]></imageExpression>
+			</image>
+			<image>
+				<reportElement x="50" y="5" width="107" height="67" uuid="512c3cc5-b8a0-42a0-a915-5c58ccf914ea">
+					<printWhenExpression><![CDATA[$P{logo}.equals("1")]]></printWhenExpression>
+				</reportElement>
+				<imageExpression><![CDATA["/home/administrator/wildfly-10.1.0.Final/standalone/deployments/shared.war/images/logo/logo-digital.png"]]></imageExpression>
+			</image>
+			<staticText>
+				<reportElement x="187" y="14" width="182" height="53" uuid="630a1ff0-3f79-4211-94b7-b7d726ba24bc">
+					<printWhenExpression><![CDATA[$P{logo}.equals("4")]]></printWhenExpression>
+				</reportElement>
+				<textElement textAlignment="Center">
+					<font fontName="SansSerif" size="11" isBold="true" isItalic="false" isUnderline="false" isStrikeThrough="false"/>
+				</textElement>
+				<text><![CDATA[MOTOREPUESTOS.COM.CO S.A.S 900998242-3]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="160" y="14" width="230" height="53" uuid="351dc11c-30de-42f4-ac5f-841ef864ae9b">
+					<printWhenExpression><![CDATA[$P{logo}.equals("1")]]></printWhenExpression>
+				</reportElement>
+				<textElement textAlignment="Center">
+					<font fontName="SansSerif" size="11" isBold="true" isItalic="false" isUnderline="false" isStrikeThrough="false"/>
+				</textElement>
+				<text><![CDATA[DIGITAL SERVICES AND MARKETING S.A.S 901478838-5]]></text>
+			</staticText>
+			<image>
+				<reportElement x="52" y="-2" width="76" height="74" uuid="95635497-c79f-427d-b561-43da90d3cd92">
+					<printWhenExpression><![CDATA[$P{logo}.equals("7")]]></printWhenExpression>
+				</reportElement>
+				<imageExpression><![CDATA["/home/administrator/wildfly-10.1.0.Final/standalone/deployments/shared.war/images/logo/logo-wali.png"]]></imageExpression>
+			</image>
+			<staticText>
+				<reportElement x="215" y="14" width="132" height="53" uuid="504e8578-3ae1-4c11-9920-c5d1b9eced61">
+					<printWhenExpression><![CDATA[$P{logo}.equals("7")]]></printWhenExpression>
+				</reportElement>
+				<textElement textAlignment="Center">
+					<font fontName="SansSerif" size="11" isBold="true" isItalic="false" isUnderline="false" isStrikeThrough="false"/>
+				</textElement>
+				<text><![CDATA[WALI COLOMBIA S.A.S 901480296-1]]></text>
+			</staticText>
+			<image>
+				<reportElement x="58" y="5" width="102" height="52" uuid="a8a08a63-871e-4adb-9fc7-39304167b49d">
+					<printWhenExpression><![CDATA[$P{logo}.equals("5")]]></printWhenExpression>
+				</reportElement>
+				<imageExpression><![CDATA["/home/administrator/wildfly-10.1.0.Final/standalone/deployments/shared.war/images/logo/logo-mtz.png"]]></imageExpression>
+			</image>
+			<staticText>
+				<reportElement x="227" y="14" width="99" height="53" uuid="383a88f3-9976-49bf-8243-dbf84748e699">
+					<printWhenExpression><![CDATA[$P{logo}.equals("5")]]></printWhenExpression>
+				</reportElement>
+				<textElement textAlignment="Center">
+					<font fontName="SansSerif" size="11" isBold="true" isItalic="false" isUnderline="false" isStrikeThrough="false"/>
+				</textElement>
+				<text><![CDATA[MOTO ZONE S.A.S 900255414-5]]></text>
+			</staticText>
+			<image>
+				<reportElement x="52" y="-8" width="117" height="80" uuid="f90fa4ea-0d88-4eb5-8eb4-91034fc846a4">
+					<printWhenExpression><![CDATA[$P{logo}.equals("6")]]></printWhenExpression>
+				</reportElement>
+				<imageExpression><![CDATA["/home/administrator/wildfly-10.1.0.Final/standalone/deployments/shared.war/images/logo/logo-redplas.png"]]></imageExpression>
+			</image>
+			<staticText>
+				<reportElement x="227" y="14" width="86" height="53" uuid="bcf45118-cd03-48fa-99c4-a0afa179ca26">
+					<printWhenExpression><![CDATA[$P{logo}.equals("6")]]></printWhenExpression>
+				</reportElement>
+				<textElement textAlignment="Center">
+					<font fontName="SansSerif" size="11" isBold="true" isItalic="false" isUnderline="false" isStrikeThrough="false"/>
+				</textElement>
+				<text><![CDATA[REDPLAS S.A.S 900690999-6]]></text>
+			</staticText>
+			<image>
+				<reportElement x="54" y="-4" width="197" height="71" uuid="6c0beea0-bea2-4787-b738-b382fd31b98f">
+					<printWhenExpression><![CDATA[$P{logo}.equals("2")]]></printWhenExpression>
+				</reportElement>
+				<imageExpression><![CDATA["/home/administrator/wildfly-10.1.0.Final/standalone/deployments/shared.war/images/logo/logo-inverSur.JPG"]]></imageExpression>
+			</image>
+			<staticText>
+				<reportElement x="202" y="14" width="155" height="53" uuid="773519da-eeca-4456-b662-17bb065a3f4d">
+					<printWhenExpression><![CDATA[$P{logo}.equals("2")]]></printWhenExpression>
+				</reportElement>
+				<textElement textAlignment="Center">
+					<font fontName="SansSerif" size="11" isBold="true" isItalic="false" isUnderline="false" isStrikeThrough="false"/>
+				</textElement>
+				<text><![CDATA[INVER SUR NEGOCIOS S.A.S 901039064-9]]></text>
+			</staticText>
+			<image>
+				<reportElement x="58" y="-2" width="127" height="71" uuid="fb92f4ac-1328-4a21-9c38-cbcfb83f0fd9">
+					<printWhenExpression><![CDATA[$P{logo}.equals("3")]]></printWhenExpression>
+				</reportElement>
+				<imageExpression><![CDATA["/home/administrator/wildfly-10.1.0.Final/standalone/deployments/shared.war/images/logo/logo-igb.png"]]></imageExpression>
+			</image>
+		</band>
+	</pageHeader>
+	<columnHeader>
+		<band height="97" splitType="Stretch">
+			<rectangle radius="0">
+				<reportElement x="5" y="2" width="562" height="91" uuid="bd20aa2d-a4f2-4f9b-998e-b929b8a4c9e0"/>
+				<graphicElement>
+					<pen lineWidth="0.5"/>
+				</graphicElement>
+			</rectangle>
+			<staticText>
+				<reportElement mode="Transparent" x="19" y="21" width="31" height="15" uuid="046bb5bb-2d9d-4346-8e63-1e76c676256e"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="SansSerif" size="11" isBold="true"/>
+				</textElement>
+				<text><![CDATA[C.C]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="52" y="21" width="199" height="15" uuid="b384a1de-b033-413c-9ffb-2546d9bcbe2d"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="SansSerif" size="11" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{cedula}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement mode="Transparent" x="9" y="45" width="66" height="15" uuid="aa3fe0c2-c838-4264-8d15-85303bcbd007"/>
+				<textElement>
+					<font fontName="SansSerif" size="11" isBold="true"/>
+				</textElement>
+				<text><![CDATA[BANCO]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="296" y="42" width="100" height="15" uuid="6767e08b-36e8-47cd-8365-084eb6359bb7"/>
+				<textElement>
+					<font fontName="SansSerif" size="11"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{pension}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="74" y="45" width="113" height="15" uuid="b43d614d-d92f-4c92-85c4-a539ac882701"/>
+				<textElement>
+					<font fontName="SansSerif" size="11"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nombreBanco}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="74" y="60" width="100" height="15" uuid="acfc3d0f-28da-47f5-9c3f-8f0d850e49ad"/>
+				<textElement>
+					<font fontName="SansSerif" size="11"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{cuentaBanco}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="296" y="57" width="144" height="15" uuid="282befed-5f32-48c2-911b-01f891c14779"/>
+				<textElement>
+					<font fontName="SansSerif" size="11"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nombreEPS}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement mode="Transparent" x="8" y="78" width="238" height="15" uuid="5b79712c-1493-4be7-87ed-cf18f12c1ea3"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="11" isBold="true"/>
+				</textElement>
+				<text><![CDATA[CONCEPTOS]]></text>
+			</staticText>
+			<textField pattern="¤ #,##0">
+				<reportElement x="397" y="20" width="224" height="15" uuid="2ddeccfc-204d-4746-aa28-893bb0ece265"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="SansSerif" size="11"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{salarioBasico}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="18" y="6" width="321" height="15" uuid="f4494aaf-35b7-457e-a7e7-59b23798a42b"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="SansSerif" size="11" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nombre}  + " " + $F{apellido1} + " " + $F{apellido2}]]></textFieldExpression>
+			</textField>
+			<line>
+				<reportElement x="5" y="38" width="562" height="1" uuid="81606bc9-4ac8-4c6a-a81f-7ddf06a04cdd"/>
+				<graphicElement>
+					<pen lineWidth="0.5"/>
+				</graphicElement>
+			</line>
+			<staticText>
+				<reportElement mode="Transparent" x="227" y="42" width="66" height="15" uuid="bf433eae-5865-4249-9f65-8f580d338418"/>
+				<textElement>
+					<font fontName="SansSerif" size="11" isBold="true"/>
+				</textElement>
+				<text><![CDATA[PENSIÓN			  PENSION:				     SALUD:						]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Transparent" x="227" y="58" width="66" height="15" uuid="abdf4f9a-1cee-4f83-bb8c-f7765507ac4b"/>
+				<textElement>
+					<font fontName="SansSerif" size="11" isBold="true"/>
+				</textElement>
+				<text><![CDATA[SALUD]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Transparent" x="9" y="60" width="66" height="15" uuid="0d6dad8a-93ed-44d0-95ba-c05e5178e115"/>
+				<textElement>
+					<font fontName="SansSerif" size="11" isBold="true"/>
+				</textElement>
+				<text><![CDATA[CUENTA]]></text>
+			</staticText>
+			<line>
+				<reportElement x="5" y="77" width="562" height="1" uuid="0de0a4ef-e388-4138-86f7-1905bda5d1e2"/>
+				<graphicElement>
+					<pen lineWidth="0.5"/>
+				</graphicElement>
+			</line>
+			<staticText>
+				<reportElement mode="Transparent" x="267" y="78" width="80" height="15" uuid="4318c559-c5a7-479a-b523-93adeadb6291"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="11" isBold="true"/>
+				</textElement>
+				<text><![CDATA[CANTIDAD]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Transparent" x="474" y="78" width="89" height="15" uuid="b85f247b-bb67-47b8-a274-e476673bf3bf"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="11" isBold="true"/>
+				</textElement>
+				<text><![CDATA[DEVENGADOS]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Transparent" x="368" y="78" width="104" height="15" uuid="8691a9d0-a925-413d-beb5-1d3e539f988b"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="11" isBold="true"/>
+				</textElement>
+				<text><![CDATA[DEDUCCIONES]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="397" y="5" width="161" height="15" uuid="f398eb39-be79-459d-9dad-971336830927"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="SansSerif" size="11"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nombreCargo}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement mode="Transparent" x="334" y="20" width="66" height="15" uuid="71b4284f-3b34-40fd-a5ef-6d9471a93322"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="SansSerif" size="11" isBold="true"/>
+				</textElement>
+				<text><![CDATA[BÁSICO]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Transparent" x="333" y="5" width="66" height="15" uuid="7676e1a0-40f2-42f8-8fd3-bb2bac2ca6b9"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="SansSerif" size="11" isBold="true"/>
+				</textElement>
+				<text><![CDATA[CARGO]]></text>
+			</staticText>
+			<textField pattern="dd/MM/yyyy">
+				<reportElement x="474" y="42" width="268" height="15" uuid="2eeefca2-0245-46c6-8374-7cea7f700065"/>
+				<textElement>
+					<font fontName="SansSerif" size="11"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{periodo}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement mode="Transparent" x="416" y="43" width="66" height="15" uuid="f271bda5-e3f6-4d09-bde1-d42531ce2cd4"/>
+				<textElement>
+					<font fontName="SansSerif" size="11" isBold="true"/>
+				</textElement>
+				<text><![CDATA[PERIODO]]></text>
+			</staticText>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="15" splitType="Stretch">
+			<textField>
+				<reportElement x="9" y="-2" width="238" height="14" uuid="00bc4a9b-2743-43cc-aca1-cf4054b66225"/>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{codigoConceptos} + " - " + $F{conceptos}]]></textFieldExpression>
+			</textField>
+			<textField pattern="###0">
+				<reportElement x="267" y="-2" width="80" height="14" uuid="5bc69029-7420-44ef-8ccf-ca7449b4657a"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{diasLiq}]]></textFieldExpression>
+			</textField>
+			<textField pattern="¤ #,##0" isBlankWhenNull="true">
+				<reportElement x="455" y="-1" width="103" height="13" uuid="c1bde5d3-0791-48f3-a6fd-2ae3204a1ebe"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{debit}]]></textFieldExpression>
+			</textField>
+			<textField pattern="¤ #,##0" isBlankWhenNull="true">
+				<reportElement x="357" y="-1" width="104" height="13" uuid="f85ceb85-c3fd-4264-8dfb-48d4fc45d938"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{credit}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<columnFooter>
+		<band splitType="Stretch"/>
+	</columnFooter>
+	<pageFooter>
+		<band height="10" splitType="Stretch">
+			<staticText>
+				<reportElement x="9" y="0" width="338" height="10" uuid="95726ac1-c47e-4953-8fe9-22372831a97c"/>
+				<textElement>
+					<font size="7" isItalic="true"/>
+				</textElement>
+				<text><![CDATA[Documento impreso por WALI COLOMBIA S.A.S]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="543" y="0" width="24" height="10" uuid="1ef9efb4-5842-4be0-8267-681fdbafa5dd"/>
+				<textElement textAlignment="Right">
+					<font size="7" isItalic="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{PAGE_NUMBER}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="390" y="0" width="153" height="10" uuid="6b2a41a7-ea6e-44ed-a283-ea93818c9c2a"/>
+				<textElement textAlignment="Right">
+					<font size="7" isItalic="true"/>
+				</textElement>
+				<text><![CDATA[Página]]></text>
+			</staticText>
+		</band>
+	</pageFooter>
+	<summary>
+		<band height="55" splitType="Stretch">
+			<rectangle>
+				<reportElement x="5" y="10" width="562" height="37" uuid="07c43f4e-9e76-4a9b-b8f3-fc68f27c5cf7"/>
+				<graphicElement>
+					<pen lineWidth="0.5"/>
+				</graphicElement>
+			</rectangle>
+			<textField pattern="¤ #,##0" isBlankWhenNull="true">
+				<reportElement x="362" y="31" width="197" height="20" uuid="86d85586-8c5d-49db-bf07-8050e5eebbd9"/>
+				<textElement textAlignment="Right"/>
+				<textFieldExpression><![CDATA[$V{sumaDebitos}.subtract($V{sumaCreditos})]]></textFieldExpression>
+			</textField>
+			<textField pattern="¤ #,##0">
+				<reportElement x="368" y="14" width="93" height="18" uuid="4cb2d9fb-024f-4a78-a424-e66d5d305aba"/>
+				<textElement textAlignment="Right"/>
+				<textFieldExpression><![CDATA[$V{sumaCreditos}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement mode="Transparent" x="282" y="27" width="43" height="21" uuid="b3059a64-a566-4124-81fd-2107554171b1"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="SansSerif" size="10" isBold="true"/>
+				</textElement>
+				<text><![CDATA[TOTAL]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Transparent" x="279" y="11" width="70" height="20" uuid="2607a9ab-4143-406f-9ca8-e982fcccfbc4"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="SansSerif" size="10" isBold="true"/>
+				</textElement>
+				<text><![CDATA[ SUBTOTAL]]></text>
+			</staticText>
+			<textField pattern="¤ #,##0">
+				<reportElement x="474" y="15" width="85" height="20" uuid="ae0480f3-a4c1-4bbf-94e3-b0c541e04ea4"/>
+				<textElement textAlignment="Right"/>
+				<textFieldExpression><![CDATA[$V{sumaDebitos}]]></textFieldExpression>
+			</textField>
+			<textField pattern="###0">
+				<reportElement x="10" y="11" width="268" height="36" uuid="471611ee-27f4-41b6-bba2-438eb00b91bb"/>
+				<textElement verticalAlignment="Middle" markup="html">
+					<font isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Días Vacaciones Pendientes: " + $F{diasLiq}]]></textFieldExpression>
+			</textField>
+		</band>
+	</summary>
+	<noData>
+		<band/>
+	</noData>
+</jasperReport>

@@ -1,0 +1,416 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="vacation" pageWidth="595" pageHeight="842" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="8bc20ca5-e0fc-414b-bfea-ba432fee116f">
+	<property name="ireport.zoom" value="1.5"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="90"/>
+	<parameter name="id" class="java.lang.String">
+		<defaultValueExpression><![CDATA[]]></defaultValueExpression>
+	</parameter>
+	<parameter name="fechaInicio" class="java.lang.String"/>
+	<parameter name="fechaFin" class="java.lang.String"/>
+	<parameter name="fechaReintegro" class="java.lang.String"/>
+	<parameter name="numDiasSolicitadosDinero" class="java.lang.String"/>
+	<parameter name="fechaInicioPeriodo" class="java.lang.String"/>
+	<parameter name="fechaFinPeriodo" class="java.lang.String"/>
+	<parameter name="diasDisfrutados" class="java.lang.String"/>
+	<parameter name="diasPendientes" class="java.lang.String"/>
+	<parameter name="comentarios" class="java.lang.String"/>
+	<parameter name="diasSolicitados" class="java.lang.String"/>
+	<parameter name="jefeInmediato" class="java.lang.String"/>
+	<parameter name="logoName" class="java.lang.String"/>
+	<queryString>
+		<![CDATA[select e.cod_emp as cedula, e.nom_emp as nombre, e.ap1_emp as apellido1, e.ap2_emp as apellido2, e.fec_ing as fechaIngreso, c.nom_car as cargo
+from rhh_emplea e
+inner join rhh_cargos c ON e.cod_car = c.cod_car
+where cod_emp = $P{id}]]>
+	</queryString>
+	<field name="cedula" class="java.lang.String"/>
+	<field name="nombre" class="java.lang.String"/>
+	<field name="apellido1" class="java.lang.String"/>
+	<field name="apellido2" class="java.lang.String"/>
+	<field name="fechaIngreso" class="java.sql.Timestamp"/>
+	<field name="cargo" class="java.lang.String"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="80" splitType="Stretch">
+			<staticText>
+				<reportElement x="0" y="43" width="555" height="19" uuid="94671b64-554f-4039-9783-c0f8bd98c199"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="14" isBold="true"/>
+				</textElement>
+				<text><![CDATA[FORMATO SOLICITUD DE VACACIONES]]></text>
+			</staticText>
+			<image>
+				<reportElement x="73" y="9" width="127" height="71" uuid="de5c01b6-f4cc-4139-8c83-4f0053208d8e">
+					<printWhenExpression><![CDATA[$P{logoName}.equals("3")]]></printWhenExpression>
+				</reportElement>
+				<imageExpression><![CDATA["C:\\logo-igb.png"
+]]></imageExpression>
+			</image>
+			<image>
+				<reportElement x="35" y="9" width="197" height="71" uuid="7575ae72-96dd-43df-9c49-f89621a8ffb7">
+					<printWhenExpression><![CDATA[$P{logoName}.equals("2")]]></printWhenExpression>
+				</reportElement>
+				<imageExpression><![CDATA["C:\\logo-inverSur.png"
+
+]]></imageExpression>
+			</image>
+			<image>
+				<reportElement x="55" y="0" width="117" height="80" uuid="b2f8c305-e1fd-4bd9-bf22-463f44a49a34">
+					<printWhenExpression><![CDATA[$P{logoName}.equals("6")]]></printWhenExpression>
+				</reportElement>
+				<imageExpression><![CDATA["C:\\logo-redplas.png"]]></imageExpression>
+			</image>
+			<image>
+				<reportElement x="39" y="24" width="102" height="52" uuid="08afd482-e510-4e2e-9e80-c7bc73342f65">
+					<printWhenExpression><![CDATA[$P{logoName}.equals("5")]]></printWhenExpression>
+				</reportElement>
+				<imageExpression><![CDATA["C:\\logo-mtz.png"]]></imageExpression>
+			</image>
+			<image>
+				<reportElement x="52" y="4" width="76" height="74" uuid="c3399ebd-f8e7-406c-a5ce-2f4e8f84c6e9">
+					<printWhenExpression><![CDATA[$P{logoName}.equals("7")]]></printWhenExpression>
+				</reportElement>
+				<imageExpression><![CDATA["C:\\logo-wali.png"]]></imageExpression>
+			</image>
+			<elementGroup>
+				<image>
+					<reportElement x="38" y="13" width="107" height="67" uuid="3c703e56-02c2-4323-9215-59d26165ce03">
+						<printWhenExpression><![CDATA[$P{logoName}.equals("1")]]></printWhenExpression>
+					</reportElement>
+					<imageExpression><![CDATA["C:\\logo-digital.png"]]></imageExpression>
+				</image>
+			</elementGroup>
+			<image>
+				<reportElement x="47" y="13" width="107" height="67" uuid="66ef02c6-3265-4000-b0d9-ceaaa89625ed">
+					<printWhenExpression><![CDATA[$P{logoName}.equals("4")]]></printWhenExpression>
+				</reportElement>
+				<imageExpression><![CDATA["C:\\logo-mr.png"]]></imageExpression>
+			</image>
+		</band>
+	</title>
+	<columnHeader>
+		<band height="439" splitType="Stretch">
+			<staticText>
+				<reportElement x="19" y="215" width="255" height="15" uuid="1592dbe7-d57d-443d-82b9-c39fa9a8ac61"/>
+				<textElement verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[N° de días de vacaciones pendientes por disfrutar:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="19" y="242" width="255" height="15" uuid="07c26ffb-8923-44d4-b49e-edb315a7538d"/>
+				<textElement verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Observaciones:]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="254" y="196" width="100" height="15" uuid="cb8d5e9c-0924-40de-ad2a-828144f33483"/>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$P{diasDisfrutados}]]></textFieldExpression>
+			</textField>
+			<line>
+				<reportElement x="15" y="236" width="525" height="1" uuid="e98f76e2-92bc-43e6-8ea9-2d00fdeab9ee"/>
+			</line>
+			<line>
+				<reportElement x="274" y="317" width="1" height="65" uuid="22228ab3-ec22-4dd8-9807-7909de4a061d"/>
+			</line>
+			<staticText>
+				<reportElement x="19" y="345" width="34" height="15" uuid="68e41233-f162-479d-afbe-75e4d9f317c6"/>
+				<textElement verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Firma:]]></text>
+			</staticText>
+			<line>
+				<reportElement x="199" y="425" width="156" height="1" uuid="f4491f43-6c3a-4d73-9e32-794d3f9fcf64"/>
+			</line>
+			<staticText>
+				<reportElement x="465" y="31" width="45" height="13" uuid="a82e2c95-728c-4eb9-b86c-40715886b411"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Fecha fin]]></text>
+			</staticText>
+			<line>
+				<reportElement x="315" y="356" width="181" height="1" uuid="ba77ba49-33cb-4499-9125-c1478ad146d3"/>
+			</line>
+			<staticText>
+				<reportElement x="15" y="301" width="525" height="16" uuid="a5675768-b89b-462f-89da-372216d827db"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[AUTORIZACIONES]]></text>
+			</staticText>
+			<line>
+				<reportElement x="15" y="317" width="525" height="1" uuid="1099a1fe-a94a-4866-81a5-cb24a7fcf674"/>
+			</line>
+			<line>
+				<reportElement x="14" y="131" width="526" height="1" uuid="255328de-52ad-4ebc-beb2-a8f665640b95"/>
+			</line>
+			<staticText>
+				<reportElement x="15" y="389" width="525" height="15" uuid="4b3ea233-0eac-48f2-9c35-e12390a10572"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Firma Recibido Gestión Humana]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="19" y="196" width="255" height="15" uuid="b24a86d9-47d4-434c-8b58-c4c4a5267e2a"/>
+				<textElement verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[N° de días disfrutado de este periodo a la fecha:]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="182" y="136" width="362" height="15" uuid="9ac727a7-603a-4bdc-9724-c4cf4c74b087"/>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$P{numDiasSolicitadosDinero}]]></textFieldExpression>
+			</textField>
+			<line>
+				<reportElement x="15" y="172" width="525" height="1" uuid="894dfdc4-846e-4eec-8f20-873efc2acc79"/>
+			</line>
+			<staticText>
+				<reportElement x="338" y="94" width="202" height="15" uuid="38e9f146-4021-4537-96ae-7e2da58d30b8"/>
+				<textElement verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[N° total de días solicitados:]]></text>
+			</staticText>
+			<textField pattern="dd/MM/yyyy">
+				<reportElement x="321" y="43" width="112" height="14" uuid="655b085b-7fda-4f17-aaec-7a1ee25c1062"/>
+				<textElement textAlignment="Center" verticalAlignment="Top"/>
+				<textFieldExpression><![CDATA[$P{fechaInicio}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="14" y="7" width="310" height="17" uuid="6d30d8cf-f334-4125-b257-67b049c70d5f"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[DATOS DEL SOLICITANTE]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="19" y="45" width="125" height="15" uuid="6c8eb82e-5c58-48a8-8643-e52b729a5a8f"/>
+				<textElement verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Número de identificación:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="325" y="63" width="215" height="13" uuid="52046668-0dbf-431e-be60-e10075908ab6"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Fecha reintegro a laborar]]></text>
+			</staticText>
+			<textField pattern="dd/MM/yyyy">
+				<reportElement x="114" y="364" width="155" height="15" uuid="f155c18f-a395-4509-b800-fdf81409500c"/>
+				<textFieldExpression><![CDATA[new java.util.Date()]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="274" y="322" width="266" height="15" uuid="538b258d-e7b8-4e63-b851-653daea916ce"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Jefe Inmediato]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="383" y="178" width="124" height="15" uuid="e48f18a6-f344-4ed9-a4c4-22b4a5d3ba1a"/>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$P{fechaFinPeriodo}]]></textFieldExpression>
+			</textField>
+			<line>
+				<reportElement x="324" y="7" width="1" height="107" uuid="3e457f5a-7bd3-46ac-8911-0b36053c916a"/>
+			</line>
+			<textField pattern="dd/MM/yyyy">
+				<reportElement x="158" y="76" width="169" height="14" uuid="ceaa7539-7d72-475c-b3f6-7a2c0fc720a1"/>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{fechaIngreso}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="15" y="156" width="525" height="16" uuid="9010c6ff-71c1-4284-ba98-2e078ebc9811"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[USO EXCLUSIVO DE GESTIÓN HUMANA]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="19" y="92" width="135" height="14" uuid="8e1e7841-0a45-42ae-a68c-0b7e4f2d69f9"/>
+				<textElement verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Jefe inmediato:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="15" y="322" width="259" height="15" uuid="e97da10b-f295-4273-8992-b2e7dd6c1c8a"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Solicitante]]></text>
+			</staticText>
+			<textField pattern="dd/MM/yyyy">
+				<reportElement x="437" y="43" width="103" height="14" uuid="1950f6b1-078a-441b-9a27-d0a9a19e6338"/>
+				<textElement textAlignment="Center"/>
+				<textFieldExpression><![CDATA[$P{fechaFin}]]></textFieldExpression>
+			</textField>
+			<line>
+				<reportElement x="14" y="438" width="526" height="1" uuid="d3e0ea0f-ed83-47cf-90ed-6bcb7c64644c"/>
+			</line>
+			<textField pattern="dd/MM/yyyy">
+				<reportElement x="325" y="76" width="215" height="14" uuid="9029e25e-c01f-43e7-a565-2aa250df906b"/>
+				<textElement textAlignment="Center"/>
+				<textFieldExpression><![CDATA[$P{fechaReintegro}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="19" y="178" width="340" height="15" uuid="08584f35-19e2-436c-b252-0adf77b3b385"/>
+				<textElement verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Último periodo causado para el disfrute de vacaciones:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="280" y="362" width="113" height="15" uuid="43ccc155-afd5-4fe6-a393-8035dc502181"/>
+				<textElement verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Fecha de aprobación:]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="266" y="215" width="100" height="15" uuid="4f62f0f9-d5f3-4feb-97c8-352f85eda177"/>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$P{diasPendientes}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="56" y="61" width="268" height="14" uuid="0be28326-dc56-4989-bd73-76a44b5a20e6"/>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{cargo}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="112" y="30" width="212" height="14" uuid="6b812dc8-6b33-4911-a896-aef74a8aaf3f"/>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{nombre} + " " + $F{apellido1} + " " + $F{apellido2}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="19" y="76" width="179" height="14" uuid="77d8fd53-9a2f-4aed-a463-7c50798eaaa9"/>
+				<textElement verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Fecha ingreso a la empresa:]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="99" y="242" width="100" height="15" uuid="dde43e9b-49ba-474e-8b72-333c212f72dc"/>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$P{comentarios}]]></textFieldExpression>
+			</textField>
+			<line>
+				<reportElement x="14" y="300" width="526" height="1" uuid="81dd967a-32d0-418c-813a-e32ec0cb205d"/>
+			</line>
+			<staticText>
+				<reportElement x="343" y="31" width="70" height="13" uuid="7496c50d-a137-437d-a78a-5a36a8260dcb"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Fecha inicio]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="325" y="7" width="215" height="17" uuid="485982c8-96cc-4840-9a53-d2f2ae9ebb0c"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[SOLICITUD VACACIONES EN TIEMPO]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="146" y="45" width="178" height="15" uuid="f49741cf-d931-49db-b70a-da0ca2a9b0d8"/>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{cedula}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="15" y="115" width="525" height="16" uuid="ef66b4e2-1138-4b81-9d42-c364eb65bfbd"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[SOLICITUD VACACIONES EN DINERO]]></text>
+			</staticText>
+			<line>
+				<reportElement x="54" y="356" width="178" height="1" uuid="30ba50d6-6f57-41ad-a680-31467df99bcc"/>
+			</line>
+			<staticText>
+				<reportElement x="19" y="362" width="101" height="15" uuid="37a5d9d4-90c4-4b80-8e1c-6b77826ffdc2"/>
+				<textElement verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Fecha de solicitud:]]></text>
+			</staticText>
+			<line>
+				<reportElement x="15" y="382" width="525" height="1" uuid="60c5eeb1-acb3-49ed-a478-8cbd12e7d266"/>
+			</line>
+			<staticText>
+				<reportElement x="280" y="345" width="34" height="15" uuid="f1e26c3c-5a71-4672-92ab-dba4aef1f5d9"/>
+				<textElement verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Firma:]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="289" y="178" width="126" height="15" uuid="f904e559-b7ed-4860-8e80-efc28ab0b304"/>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$P{fechaInicioPeriodo}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="19" y="136" width="179" height="15" uuid="f726e2b9-7940-427b-b798-36608e4fe321"/>
+				<textElement verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[N° de días solicitados en dinero:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="19" y="30" width="89" height="14" uuid="cf652013-7792-4cfe-baed-86c2c3c86e3e"/>
+				<textElement verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Nombre completo:]]></text>
+			</staticText>
+			<line>
+				<reportElement x="14" y="24" width="526" height="1" uuid="2771da32-560d-462c-91e2-603aa9c96ea9"/>
+			</line>
+			<staticText>
+				<reportElement x="19" y="61" width="34" height="14" uuid="1033c412-be8e-4b68-ae41-2f33d2f796e3"/>
+				<textElement verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Cargo:]]></text>
+			</staticText>
+			<line>
+				<reportElement x="14" y="155" width="526" height="1" uuid="296f43a6-d512-430e-a824-8216333a3650"/>
+			</line>
+			<line>
+				<reportElement x="14" y="6" width="526" height="1" uuid="1a3c4d01-297a-416d-ac5d-3fa642c0e49f"/>
+			</line>
+			<line>
+				<reportElement x="540" y="6" width="1" height="432" uuid="1abfb6ea-b986-4d5d-b66a-9168b428e346"/>
+			</line>
+			<line>
+				<reportElement x="14" y="6" width="1" height="432" uuid="653e230f-ec36-4f2f-b2ee-2cc3076f53d1"/>
+			</line>
+			<line>
+				<reportElement x="14" y="114" width="526" height="1" uuid="97c1be14-2731-4825-8ecd-d33e34259cbd"/>
+			</line>
+			<textField>
+				<reportElement x="475" y="94" width="100" height="15" uuid="83df3c1f-7168-44ec-a7fe-44252d8a4404"/>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$P{diasSolicitados}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="98" y="92" width="100" height="14" uuid="419414ae-339b-4020-9ac1-bb8586a3815e"/>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$P{jefeInmediato}]]></textFieldExpression>
+			</textField>
+		</band>
+	</columnHeader>
+	<columnFooter>
+		<band height="57" splitType="Stretch"/>
+	</columnFooter>
+</jasperReport>
