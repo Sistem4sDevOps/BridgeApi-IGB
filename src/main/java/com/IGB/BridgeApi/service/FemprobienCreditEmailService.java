@@ -62,14 +62,6 @@ public class FemprobienCreditEmailService {
                 jdbcTemplate;
     }
 
-
-    /**
-     * Envía la notificación de cambio de estado.
-     *
-     * Un fallo en Microsoft 365 NO debe revertir el cambio de estado.
-     * Por eso este método devuelve enviado=false en lugar de propagar
-     * el error hacia el flujo principal del crédito.
-     */
     public Map<String, Object> notificarCambioEstado(
             Map<String, Object> solicitud,
             CreditStatus estado,
@@ -354,11 +346,6 @@ public class FemprobienCreditEmailService {
                 destinatarios
         );
 
-
-        /*
-         * Firma institucional embebida como imagen inline.
-         * El HTML la referencia mediante cid:firmaFemprobien.
-         */
         if (
                 firmaInstitucional != null &&
                         firmaInstitucional.length > 0
@@ -486,11 +473,6 @@ public class FemprobienCreditEmailService {
         }
     }
 
-
-    /* =========================================================
-       ASUNTOS
-       ========================================================= */
-
     private String construirAsunto(
             CreditStatus estado,
             Integer numeroSolicitud) {
@@ -548,11 +530,6 @@ public class FemprobienCreditEmailService {
         return "FEMPROBIEN | Actualización solicitud de crédito" +
                 numero;
     }
-
-
-    /* =========================================================
-       HTML DEL CORREO
-       ========================================================= */
 
     private String construirHtml(
             Map<String, Object> solicitud,
@@ -1032,11 +1009,6 @@ public class FemprobienCreditEmailService {
                 : estado.name();
     }
 
-
-    /* =========================================================
-       AUDITORÍA SQL SERVER
-       ========================================================= */
-
     private void registrarAuditoriaSeguro(
             Integer idSolicitud,
             Integer numeroSolicitud,
@@ -1071,11 +1043,6 @@ public class FemprobienCreditEmailService {
             );
 
         } catch (Exception e) {
-
-            /*
-             * La auditoría no debe bloquear el cambio de estado
-             * ni ocultar el resultado real del envío.
-             */
             System.err.println(
                     "[FEMPROBIEN-CORREO] No fue posible registrar auditoría " +
                             "de notificación. Error: " +
@@ -1083,11 +1050,6 @@ public class FemprobienCreditEmailService {
             );
         }
     }
-
-
-    /* =========================================================
-       VALIDACIONES / UTILIDADES
-       ========================================================= */
 
     private void validarDatosEnvio(
             Map<String, Object> solicitud,

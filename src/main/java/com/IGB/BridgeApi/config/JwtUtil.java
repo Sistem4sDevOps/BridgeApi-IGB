@@ -20,26 +20,11 @@ public class JwtUtil implements Serializable {
     private static final long serialVersionUID =
             -2550185165626007488L;
 
-
-    /* =========================================================
-       SECRET JWT
-       ========================================================= */
-
     @Value("${jwt.secret}")
     private String secret;
 
-
-    /* =========================================================
-       DURACIÓN TOKEN
-       ========================================================= */
-
     @Value("${jwt.expiration:28800}")
     private Long expiration;
-
-
-    /* =========================================================
-       EXTRAER USERNAME
-       ========================================================= */
 
     public String extractUsername(
             String token
@@ -51,11 +36,6 @@ public class JwtUtil implements Serializable {
         );
     }
 
-
-    /* =========================================================
-       EXTRAER FECHA EXPIRACIÓN
-       ========================================================= */
-
     public Date extractExpiration(
             String token
     ) {
@@ -65,11 +45,6 @@ public class JwtUtil implements Serializable {
                 Claims::getExpiration
         );
     }
-
-
-    /* =========================================================
-       EXTRAER CLAIM
-       ========================================================= */
 
     public <T> T extractClaim(
 
@@ -87,11 +62,6 @@ public class JwtUtil implements Serializable {
         );
     }
 
-
-    /* =========================================================
-       EXTRAER TODOS LOS CLAIMS
-       ========================================================= */
-
     private Claims extractAllClaims(
             String token
     ) {
@@ -102,11 +72,6 @@ public class JwtUtil implements Serializable {
                 .parseClaimsJws(token)
                 .getBody();
     }
-
-
-    /* =========================================================
-       VALIDAR EXPIRACIÓN
-       ========================================================= */
 
     private boolean isTokenExpired(
             String token
@@ -119,11 +84,6 @@ public class JwtUtil implements Serializable {
                 new Date()
         );
     }
-
-
-    /* =========================================================
-       GENERAR TOKEN
-       ========================================================= */
 
     public String generateToken(
             String username
@@ -138,11 +98,6 @@ public class JwtUtil implements Serializable {
         );
     }
 
-
-    /* =========================================================
-       CREAR TOKEN
-       ========================================================= */
-
     private String createToken(
 
             Map<String, Object> claims,
@@ -153,10 +108,6 @@ public class JwtUtil implements Serializable {
 
         Date now =
                 new Date();
-
-        /*
-         * jwt.expiration está en segundos.
-         */
 
         Date expirationDate =
                 new Date(
@@ -178,11 +129,6 @@ public class JwtUtil implements Serializable {
                 )
                 .compact();
     }
-
-
-    /* =========================================================
-       VALIDAR TOKEN
-       ========================================================= */
 
     public boolean validateToken(
             String token

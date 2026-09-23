@@ -207,19 +207,6 @@ public class FemprobienCreditService {
                 decision.getUsuario()
         );
 
-
-        /*
-         * ============================================================
-         * NOTIFICACIÓN POR MICROSOFT 365 / MICROSOFT GRAPH
-         * ============================================================
-         *
-         * El cambio de estado ya quedó registrado antes de intentar
-         * enviar el correo.
-         *
-         * Si Microsoft Graph falla, NO revertimos el estado.
-         * El resultado del correo se informa al frontend y queda
-         * auditado en tblNotificacionCredito.
-         */
         Map<String, Object> solicitudActualizada =
                 obtenerSolicitudInterna(
                         numeroSolicitud

@@ -78,6 +78,82 @@ public class FemprobienController {
     }
 
 
+
+    /* =========================================================
+       CONSULTAR ASOCIADOS SIN APORTES
+
+       GET /femprobien/asociados/sin-aportes
+       ========================================================= */
+
+    @GetMapping("/asociados/sin-aportes")
+    public ResponseEntity<?> consultarAsociadosSinAportes() {
+
+        try {
+
+            String sql =
+                    "SELECT " +
+                            "a.id_aso, " +
+                            "a.cod_asp, " +
+                            "a.nom_aso, " +
+                            "a.nom_emp, " +
+                            "a.cel, " +
+                            "a.email_per, " +
+                            "a.activo, " +
+                            "a.fecha_retiro " +
+
+                            "FROM FEMPROBIEN.dbo.tblAsociado a " +
+
+                            "WHERE ISNULL(a.activo, 1) = 1 " +
+
+                            "AND NOT EXISTS (" +
+
+                            "    SELECT 1 " +
+                            "    FROM FEMPROBIEN.dbo.tblAportes ap " +
+                            "    WHERE ap.id_aso = a.id_aso " +
+                            "       OR LTRIM(RTRIM(CAST(ap.cod_asp AS VARCHAR(100)))) = " +
+                            "          LTRIM(RTRIM(CAST(a.cod_asp AS VARCHAR(100)))) " +
+
+                            ") " +
+
+                            "ORDER BY a.nom_aso";
+
+            List<Map<String, Object>> asociados =
+                    sqlServerJdbcTemplate.queryForList(
+                            sql
+                    );
+
+            Map<String, Object> response =
+                    new HashMap<>();
+
+            response.put(
+                    "status",
+                    200
+            );
+
+            response.put(
+                    "cantidad",
+                    asociados.size()
+            );
+
+            response.put(
+                    "asociados",
+                    asociados
+            );
+
+            return ResponseEntity.ok(
+                    response
+            );
+
+        } catch (Exception e) {
+
+            return internalError(
+                    "Error consultando asociados sin aportes.",
+                    e
+            );
+        }
+    }
+
+
     /* =========================================================
        CONSULTAR ASOCIADO POR cod_asp
 
@@ -360,9 +436,6 @@ public class FemprobienController {
 
         try {
 
-            /* =========================
-               ASOCIADO
-               ========================= */
 
             String sqlAsociado =
                     "SELECT * " +
@@ -383,10 +456,6 @@ public class FemprobienController {
                 );
             }
 
-
-            /* =========================
-               APORTES
-               ========================= */
 
             String sqlAportes =
                     "SELECT " +
@@ -422,10 +491,6 @@ public class FemprobienController {
                     );
 
 
-            /* =========================
-               CRÉDITOS
-               ========================= */
-
             String sqlCreditos =
                     "SELECT * " +
                             "FROM FEMPROBIEN.dbo.tblAporteCredito " +
@@ -438,10 +503,6 @@ public class FemprobienController {
                             codAsp
                     );
 
-
-            /* =========================
-               SOLICITUDES
-               ========================= */
 
             String sqlSolicitudes =
                     "SELECT ac.* " +
@@ -457,10 +518,6 @@ public class FemprobienController {
                             codAsp
                     );
 
-
-            /* =========================
-               ESTADOS
-               ========================= */
 
             String sqlEstados =
                     "SELECT " +
@@ -484,10 +541,6 @@ public class FemprobienController {
                             codAsp
                     );
 
-
-            /* =========================
-               RESPUESTA
-               ========================= */
 
             Map<String, Object> response =
                     new HashMap<>();
@@ -539,7 +592,6 @@ public class FemprobienController {
             );
         }
     }
-
 
 
     /* =========================================================
@@ -681,9 +733,6 @@ public class FemprobienController {
             );
         }
     }
-
-
-
 
 
     /* =========================================================
@@ -938,12 +987,6 @@ public class FemprobienController {
     }
 
 
-    /* =========================================================
-       APROBAR / RECHAZAR SOLICITUD
-
-       PATCH /femprobien/solicitudes-afiliacion/{id}/estado
-       ========================================================= */
-
     @PatchMapping("/solicitudes-afiliacion/{id}/estado")
     public ResponseEntity<?> cambiarEstadoSolicitudAfiliacion(
             @PathVariable Integer id,
@@ -1143,14 +1186,6 @@ public class FemprobienController {
             }
 
 
-            /*
-             * Si tiene fecha de retiro:
-             * activo = 0
-             *
-             * Si no tiene fecha de retiro:
-             * activo = 1
-             */
-
             Object fechaRetiro =
                     datos.get("fecha_retiro");
 
@@ -1271,11 +1306,6 @@ public class FemprobienController {
                 );
             }
 
-
-            /*
-             * Estos datos no los controla el Front.
-             * Se toman directamente desde tblAsociado.
-             */
 
             datos.put(
                     "id_aso",
@@ -1499,10 +1529,6 @@ public class FemprobienController {
             }
 
 
-            /*
-             * Datos controlados por backend
-             */
-
             datos.put(
                     "id_aso",
                     asociado.get("id_aso")
@@ -1518,11 +1544,6 @@ public class FemprobienController {
                     asociado.get("fecha_retiro")
             );
 
-
-            /*
-             * Si no mandan estado,
-             * se crea como PENDIENTE.
-             */
 
             if (datos.get("estado_credito") == null
                     || datos.get("estado_credito")
@@ -1637,10 +1658,6 @@ public class FemprobienController {
                             .toUpperCase();
 
 
-            /*
-             * Estados permitidos
-             */
-
             if (!estado.equals("PENDIENTE")
                     && !estado.equals("EN_ESTUDIO")
                     && !estado.equals("APROBADA")
@@ -1691,10 +1708,6 @@ public class FemprobienController {
                             .get("id");
 
 
-            /*
-             * Datos controlados por backend
-             */
-
             datos.put(
                     "id_solicitud",
                     idSolicitud
@@ -1716,11 +1729,6 @@ public class FemprobienController {
             );
 
 
-            /*
-             * Estas fechas tienen DEFAULT en SQL Server.
-             * No permitimos que las controle el Front.
-             */
-
             datos.remove(
                     "fecha_estado"
             );
@@ -1735,11 +1743,6 @@ public class FemprobienController {
                     datos
             );
 
-
-            /*
-             * Actualizar también el estado actual
-             * en tblAsociadoCredito
-             */
 
             String sqlUpdate =
                     "UPDATE FEMPROBIEN.dbo.tblAsociadoCredito " +
@@ -1802,10 +1805,6 @@ public class FemprobienController {
     }
 
 
-    /* =========================================================
-       OBTENER ASOCIADO
-       ========================================================= */
-
     private Map<String, Object> obtenerAsociado(
             String codAsp) {
 
@@ -1836,10 +1835,6 @@ public class FemprobienController {
     }
 
 
-    /* =========================================================
-       VALIDAR SI EXISTE ASOCIADO
-       ========================================================= */
-
     private boolean existeAsociado(
             String codAsp) {
 
@@ -1864,17 +1859,9 @@ public class FemprobienController {
     }
 
 
-
-    /* =========================================================
-       CREAR ASOCIADO DESDE SOLICITUD APROBADA
-       ========================================================= */
-
     private void crearAsociadoDesdeSolicitud(
             Map<String, Object> solicitud) {
 
-        /* =====================================================
-           VALIDAR CÓDIGO DEL ASOCIADO
-           ===================================================== */
 
         String codAsp =
                 solicitud.get("cod_asp") == null
@@ -1902,10 +1889,6 @@ public class FemprobienController {
         }
 
 
-        /* =====================================================
-           GENERAR SIGUIENTE id_aso
-           ===================================================== */
-
         Integer siguienteId =
                 sqlServerJdbcTemplate.queryForObject(
                         "SELECT ISNULL(MAX(id_aso), 0) + 1 " +
@@ -1913,10 +1896,6 @@ public class FemprobienController {
                         Integer.class
                 );
 
-
-        /* =====================================================
-           CONSTRUIR NOMBRE COMPLETO
-           ===================================================== */
 
         String nombres =
                 texto(
@@ -1951,17 +1930,9 @@ public class FemprobienController {
                         .trim();
 
 
-        /* =====================================================
-           DATOS QUE SE INSERTARÁN EN tblAsociado
-           ===================================================== */
-
         Map<String, Object> asociado =
                 new HashMap<>();
 
-
-        /* =========================
-           IDENTIFICACIÓN
-           ========================= */
 
         asociado.put(
                 "id_aso",
@@ -1979,10 +1950,6 @@ public class FemprobienController {
         );
 
 
-        /* =========================
-           AHORRO / DESCUENTO
-           ========================= */
-
         asociado.put(
                 "forma_desc",
                 solicitud.get("forma_desc")
@@ -1998,10 +1965,6 @@ public class FemprobienController {
                 solicitud.get("porcen_ahorro")
         );
 
-
-        /* =========================
-           DATOS PERSONALES
-           ========================= */
 
         asociado.put(
                 "est_civil",
@@ -2054,10 +2017,6 @@ public class FemprobienController {
         );
 
 
-        /* =========================
-           INFORMACIÓN LABORAL
-           ========================= */
-
         asociado.put(
                 "nom_emp",
                 solicitud.get("nom_emp")
@@ -2094,10 +2053,6 @@ public class FemprobienController {
         );
 
 
-        /* =========================
-           INFORMACIÓN BANCARIA
-           ========================= */
-
         asociado.put(
                 "tipo_cuenta",
                 solicitud.get("tipo_cuenta")
@@ -2114,10 +2069,6 @@ public class FemprobienController {
         );
 
 
-        /* =========================
-           CÓNYUGE
-           ========================= */
-
         asociado.put(
                 "nom_conyuge",
                 solicitud.get("nom_conyuge")
@@ -2133,33 +2084,19 @@ public class FemprobienController {
                 solicitud.get("tel_conyuge")
         );
 
-        /*
-         * En tblAsociado el tipo de documento
-         * del cónyuge se llama tip_doc.
-         */
+
         asociado.put(
                 "tip_doc",
                 solicitud.get("tipo_doc_conyuge")
         );
 
-        /*
-         * Nombre correcto en tblAsociado:
-         * doc_conyuge
-         */
+
         asociado.put(
                 "doc_conyuge",
                 solicitud.get("doc_conyuge")
         );
 
 
-        /* =========================
-           BIENES
-           ========================= */
-
-        /*
-         * bien_raices y vehiculo son BIT en SQL Server.
-         * Se envía el Boolean directamente.
-         */
         asociado.put(
                 "bien_raices",
                 solicitud.get("bien_raices")
@@ -2186,10 +2123,6 @@ public class FemprobienController {
         );
 
 
-        /* =========================
-           BENEFICIARIO 1
-           ========================= */
-
         asociado.put(
                 "ben_nom1",
                 solicitud.get("ben_nom1")
@@ -2205,10 +2138,6 @@ public class FemprobienController {
                 solicitud.get("parentesco1")
         );
 
-
-        /* =========================
-           BENEFICIARIO 2
-           ========================= */
 
         asociado.put(
                 "ben_nom2",
@@ -2226,10 +2155,6 @@ public class FemprobienController {
         );
 
 
-        /* =========================
-           BENEFICIARIO 3
-           ========================= */
-
         asociado.put(
                 "ben_nom3",
                 solicitud.get("ben_nom3")
@@ -2245,14 +2170,6 @@ public class FemprobienController {
                 solicitud.get("parentesco3")
         );
 
-
-        /* =====================================================
-           CAMPOS NUEVOS / OPCIONALES
-
-           Solo se agregan si físicamente existen en tblAsociado.
-           De esta forma el proceso funciona tanto con la estructura
-           histórica como con la estructura ampliada.
-           ===================================================== */
 
         agregarSiExiste(
                 "tblAsociado",
@@ -2325,10 +2242,6 @@ public class FemprobienController {
         );
 
 
-        /* =========================
-           ESTADO DEL ASOCIADO
-           ========================= */
-
         agregarSiExiste(
                 "tblAsociado",
                 asociado,
@@ -2343,7 +2256,7 @@ public class FemprobienController {
                 null
         );
 
-        /* Compatibilidad con estructura histórica. */
+
         agregarSiExiste(
                 "tblAsociado",
                 asociado,
@@ -2359,20 +2272,12 @@ public class FemprobienController {
         );
 
 
-        /* =====================================================
-           INSERTAR
-           ===================================================== */
-
         insertarRegistro(
                 "tblAsociado",
                 asociado
         );
     }
 
-
-    /* =========================================================
-       AGREGAR CAMPO SOLAMENTE SI EXISTE EN LA TABLA
-       ========================================================= */
 
     private void agregarSiExiste(
             String tabla,
@@ -2423,23 +2328,10 @@ public class FemprobienController {
     }
 
 
-    /* =========================================================
-       INSERT DINÁMICO
-
-       Permite insertar solamente columnas reales
-       existentes en la tabla.
-       ========================================================= */
-
     private void insertarRegistro(
             String tabla,
             Map<String, Object> datos) {
 
-
-        /*
-         * Seguridad:
-         * solamente permitimos las tablas
-         * definidas aquí.
-         */
 
         if (!tabla.equals("tblAsociado")
                 && !tabla.equals("tblAportes")
@@ -2454,15 +2346,6 @@ public class FemprobienController {
             );
         }
 
-
-        /*
-         * Consultamos las columnas reales
-         * de SQL Server.
-         *
-         * No se permiten:
-         * - IDENTITY
-         * - Columnas calculadas
-         */
 
         String sqlColumnas =
                 "SELECT c.name " +
@@ -2500,10 +2383,6 @@ public class FemprobienController {
                 new ArrayList<>();
 
 
-        /*
-         * Recorrer datos enviados desde el Front.
-         */
-
         for (Map.Entry<String, Object> entry
                 : datos.entrySet()) {
 
@@ -2511,11 +2390,6 @@ public class FemprobienController {
             String columnaSolicitada =
                     entry.getKey();
 
-
-            /*
-             * Buscar la columna ignorando
-             * mayúsculas y minúsculas.
-             */
 
             String columnaReal =
                     buscarColumna(
@@ -2565,10 +2439,6 @@ public class FemprobienController {
         }
 
 
-        /*
-         * Construir INSERT
-         */
-
         String sql =
                 "INSERT INTO FEMPROBIEN.dbo."
                         + tabla
@@ -2579,20 +2449,12 @@ public class FemprobienController {
                         + ")";
 
 
-        /*
-         * Ejecutar INSERT
-         */
-
         sqlServerJdbcTemplate.update(
                 sql,
                 parametros.toArray()
         );
     }
 
-
-    /* =========================================================
-       BUSCAR COLUMNA IGNORANDO MAYÚSCULAS
-       ========================================================= */
 
     private String buscarColumna(
             List<String> columnas,
@@ -2611,10 +2473,6 @@ public class FemprobienController {
         return null;
     }
 
-
-    /* =========================================================
-       RESPONSE 400
-       ========================================================= */
 
     private ResponseEntity<?> badRequest(
             String message) {
@@ -2638,10 +2496,6 @@ public class FemprobienController {
     }
 
 
-    /* =========================================================
-       RESPONSE 404
-       ========================================================= */
-
     private ResponseEntity<?> notFound(
             String message) {
 
@@ -2664,10 +2518,6 @@ public class FemprobienController {
     }
 
 
-    /* =========================================================
-       RESPONSE 409
-       ========================================================= */
-
     private ResponseEntity<?> conflict(
             String message) {
 
@@ -2689,10 +2539,6 @@ public class FemprobienController {
                 .body(response);
     }
 
-
-    /* =========================================================
-       RESPONSE 500
-       ========================================================= */
 
     private ResponseEntity<?> internalError(
             String message,

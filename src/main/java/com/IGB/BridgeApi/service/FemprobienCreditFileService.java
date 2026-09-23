@@ -29,15 +29,6 @@ public class FemprobienCreditFileService {
     private static final int MAX_IMAGE_WIDTH = 5000;
     private static final int MAX_IMAGE_HEIGHT = 5000;
 
-    /*
-     * El frontend entrega:
-     *
-     * firma  -> 900 x 300
-     * huella -> 600 x 600
-     *
-     * Estas dimensiones mínimas también protegen el endpoint
-     * si alguien intenta llamarlo sin pasar por Angular.
-     */
     private static final int FIRMA_MIN_WIDTH = 500;
     private static final int FIRMA_MIN_HEIGHT = 150;
 
@@ -55,11 +46,6 @@ public class FemprobienCreditFileService {
 
     @Value("${femprobien.creditos.archivos}")
     private String basePath;
-
-
-    /* =========================================================
-       GUARDAR IMAGEN
-       ========================================================= */
 
     public String guardarImagen(
             Integer numeroSolicitud,
@@ -95,9 +81,6 @@ public class FemprobienCreditFileService {
                 contenido
         );
 
-        /*
-         * Valida la firma real del archivo.
-         */
         detectarExtension(
                 contenido
         );
@@ -111,15 +94,6 @@ public class FemprobienCreditFileService {
                 imagen
         );
 
-
-        /*
-         * Si una validación de calidad falla, agregamos el nombre
-         * lógico de la imagen para que Angular pueda mostrar:
-         *
-         * "Firma del solicitante: ..."
-         * "Huella del solicitante: ..."
-         * "Firma del deudor solidario 1: ..."
-         */
         try {
 
             validarCalidadBiometrica(
@@ -195,9 +169,6 @@ public class FemprobienCreditFileService {
                 carpetaSolicitud
         );
 
-        /*
-         * Siempre guardamos el archivo biométrico procesado como PNG.
-         */
         String nombreArchivo =
                 tipoArchivo +
                         "_" +
@@ -234,11 +205,6 @@ public class FemprobienCreditFileService {
                 "/" +
                 nombreArchivo;
     }
-
-
-    /* =========================================================
-       ELIMINAR ARCHIVO
-       ========================================================= */
 
     public void eliminarArchivoRelativo(
             String rutaRelativa) {
@@ -280,17 +246,8 @@ public class FemprobienCreditFileService {
                 Exception ignored
         ) {
 
-            /*
-             * Limpieza de respaldo.
-             * Nunca reemplaza el error principal.
-             */
         }
     }
-
-
-    /* =========================================================
-       RESOLVER RUTA
-       ========================================================= */
 
     public Path resolverArchivoRelativo(
             String rutaRelativa) throws IOException {
@@ -339,11 +296,6 @@ public class FemprobienCreditFileService {
         return archivo;
     }
 
-
-    /* =========================================================
-       CARPETA BASE
-       ========================================================= */
-
     private Path obtenerCarpetaBase()
             throws IOException {
 
@@ -371,11 +323,6 @@ public class FemprobienCreditFileService {
 
         return carpetaBase;
     }
-
-
-    /* =========================================================
-       VALIDACIONES GENERALES
-       ========================================================= */
 
     private void validarTamano(
             byte[] contenido) {
@@ -503,11 +450,6 @@ public class FemprobienCreditFileService {
                 );
     }
 
-
-    /* =========================================================
-       VALIDACIÓN DE CALIDAD
-       ========================================================= */
-
     private void validarCalidadBiometrica(
             BufferedImage imagen,
             String tipoArchivo) {
@@ -534,7 +476,6 @@ public class FemprobienCreditFileService {
             );
         }
     }
-
 
     private void validarFirma(
             BufferedImage imagen) {
@@ -584,20 +525,6 @@ public class FemprobienCreditFileService {
                 );
 
 
-        /*
-         * IMPORTANTE:
-         *
-         * Antes usábamos un umbral absoluto:
-         *
-         *     luminancia < 205
-         *
-         * Eso falla cuando la foto tiene papel gris, sombra o poca luz,
-         * porque prácticamente TODA la imagen termina siendo considerada
-         * "oscura".
-         *
-         * Ahora calculamos primero el nivel aproximado del fondo
-         * de ESTA imagen y buscamos tinta relativa a ese fondo.
-         */
         int luminanciaFondo =
                 estimarLuminanciaFondo(
                         imagen
@@ -622,10 +549,6 @@ public class FemprobienCreditFileService {
                 );
 
 
-        /*
-         * Traza útil durante pruebas.
-         * No contiene datos personales ni la imagen.
-         */
         System.out.println(
                 "[FEMPROBIEN-BIOMETRIA] FIRMA " +
                         "promedio=" +
@@ -647,11 +570,6 @@ public class FemprobienCreditFileService {
         );
 
 
-        /*
-         * Muy oscura:
-         * permitimos fotografías con sombra, pero no una imagen
-         * prácticamente negra.
-         */
         if (
                 metricas.luminanciaPromedio < 45
         ) {
@@ -663,9 +581,6 @@ public class FemprobienCreditFileService {
         }
 
 
-        /*
-         * Prácticamente blanca/vacía.
-         */
         if (
                 metricas.luminanciaPromedio > 254
         ) {
@@ -676,10 +591,6 @@ public class FemprobienCreditFileService {
         }
 
 
-        /*
-         * Una fotografía real con firma debe tener cierta variación
-         * entre fondo y trazo.
-         */
         if (
                 metricas.desviacionLuminancia < 5
         ) {
@@ -691,14 +602,6 @@ public class FemprobienCreditFileService {
         }
 
 
-        /*
-         * Detectamos tinta de forma ADAPTATIVA respecto al fondo.
-         *
-         * 0.001 = 0.10 % de la imagen.
-         *
-         * Con el recorte manual del frontend no necesitamos exigir
-         * que la firma ocupe un porcentaje grande del lienzo.
-         */
         if (
                 metricasTinta.porcentaje < 0.001
         ) {
@@ -710,11 +613,6 @@ public class FemprobienCreditFileService {
         }
 
 
-        /*
-         * Si casi todo el recorte se comporta como tinta,
-         * probablemente la fotografía sigue siendo demasiado oscura
-         * o contiene un objeto que ocupa todo el marco.
-         */
         if (
                 metricasTinta.porcentaje > 0.75
         ) {
@@ -726,13 +624,6 @@ public class FemprobienCreditFileService {
         }
 
 
-        /*
-         * No basta con encontrar unos pocos puntos.
-         * El trazo debe ocupar un área mínima en ancho y alto.
-         *
-         * Esto evita aceptar, por ejemplo, solamente una pequeña mancha
-         * o una línea horizontal aislada.
-         */
         if (
                 metricasTinta.proporcionAncho < 0.08 ||
                         metricasTinta.proporcionAlto < 0.04
@@ -745,13 +636,6 @@ public class FemprobienCreditFileService {
         }
 
 
-        /*
-         * La fotografía de ejemplo tiene bastante fondo uniforme,
-         * por eso el promedio global de gradientes puede ser bajo.
-         *
-         * Se conserva una protección contra imágenes extremadamente
-         * desenfocadas, pero con un límite razonable para firmas.
-         */
         if (
                 metricas.gradientePromedio < 0.35
         ) {
@@ -812,13 +696,6 @@ public class FemprobienCreditFileService {
                 );
 
 
-        /*
-         * También usamos detección adaptativa para la huella.
-         *
-         * Las fotografías tomadas con celular pueden tener papel
-         * blanco, gris o sombras. Un umbral absoluto produciría
-         * falsos rechazos.
-         */
         int luminanciaFondo =
                 estimarLuminanciaFondo(
                         imagen
@@ -942,18 +819,6 @@ public class FemprobienCreditFileService {
     }
 
 
-    /* =========================================================
-       DETECCIÓN ADAPTATIVA DE TINTA / DETALLE
-       ========================================================= */
-
-    /**
-     * Estima el color/luminancia del fondo utilizando el percentil 90.
-     *
-     * En una firma o huella correctamente recortada, la mayor parte
-     * del papel pertenece al fondo. El percentil 90 nos da una
-     * referencia de las zonas más claras sin asumir que siempre sean
-     * blanco puro.
-     */
     private int estimarLuminanciaFondo(
             BufferedImage imagen) {
 
@@ -1062,12 +927,6 @@ public class FemprobienCreditFileService {
     }
 
 
-    /**
-     * Calcula cuánto contenido es significativamente más oscuro que
-     * el fondo estimado y qué área ocupa.
-     *
-     * Esto es más estable que usar "gris < 205" para cualquier foto.
-     */
     private MetricasTinta calcularMetricasTinta(
             BufferedImage imagen,
             int umbral) {
@@ -1214,10 +1073,6 @@ public class FemprobienCreditFileService {
         );
     }
 
-
-    /* =========================================================
-       MÉTRICAS DE IMAGEN
-       ========================================================= */
 
     private MetricasImagen calcularMetricas(
             BufferedImage imagen) {
@@ -1410,10 +1265,6 @@ public class FemprobienCreditFileService {
     }
 
 
-    /* =========================================================
-       NORMALIZAR FIRMA
-       ========================================================= */
-
     private BufferedImage normalizarFirma(
             BufferedImage original) {
 
@@ -1430,10 +1281,6 @@ public class FemprobienCreditFileService {
         );
     }
 
-
-    /* =========================================================
-       NORMALIZAR HUELLA
-       ========================================================= */
 
     private BufferedImage normalizarHuella(
             BufferedImage original) {
@@ -1456,10 +1303,6 @@ public class FemprobienCreditFileService {
         );
     }
 
-
-    /* =========================================================
-       FONDO BLANCO
-       ========================================================= */
 
     private BufferedImage crearSobreFondoBlanco(
             BufferedImage original) {
@@ -1502,10 +1345,6 @@ public class FemprobienCreditFileService {
         return resultado;
     }
 
-
-    /* =========================================================
-       AJUSTAR SIN DEFORMAR
-       ========================================================= */
 
     private BufferedImage ajustarEnLienzo(
             BufferedImage original,
@@ -1623,10 +1462,6 @@ public class FemprobienCreditFileService {
     }
 
 
-    /* =========================================================
-       HUELLA A ESCALA DE GRISES
-       ========================================================= */
-
     private BufferedImage convertirHuellaEscalaGrises(
             BufferedImage original) {
 
@@ -1637,10 +1472,6 @@ public class FemprobienCreditFileService {
                         BufferedImage.TYPE_INT_RGB
                 );
 
-        /*
-         * Contraste moderado:
-         * mejora las crestas sin convertir la huella en blanco/negro duro.
-         */
         final double contraste =
                 1.12;
 
@@ -1703,10 +1534,6 @@ public class FemprobienCreditFileService {
     }
 
 
-    /* =========================================================
-       PNG
-       ========================================================= */
-
     private byte[] convertirPng(
             BufferedImage imagen)
             throws IOException {
@@ -1733,10 +1560,6 @@ public class FemprobienCreditFileService {
         return output.toByteArray();
     }
 
-
-    /* =========================================================
-       VALIDAR FORMATO REAL
-       ========================================================= */
 
     private String detectarExtension(
             byte[] contenido) {
@@ -1771,10 +1594,6 @@ public class FemprobienCreditFileService {
         );
     }
 
-
-    /* =========================================================
-       LEER IMAGEN REAL
-       ========================================================= */
 
     private BufferedImage leerImagenReal(
             byte[] contenido)
@@ -1826,10 +1645,6 @@ public class FemprobienCreditFileService {
         }
     }
 
-
-    /* =========================================================
-       MÉTRICAS
-       ========================================================= */
 
     private static class MetricasTinta {
 

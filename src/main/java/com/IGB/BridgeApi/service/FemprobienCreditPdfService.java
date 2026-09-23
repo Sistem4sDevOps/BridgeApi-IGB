@@ -146,11 +146,6 @@ public class FemprobienCreditPdfService {
                 solicitud
         );
 
-
-        /* =========================================================
-           FONDOS
-           ========================================================= */
-
         parametros.put(
                 "fondoPagina1",
                 fondoPagina1
@@ -161,11 +156,6 @@ public class FemprobienCreditPdfService {
                 "fondoPagina2",
                 fondoPagina2
         );
-
-
-        /* =========================================================
-           FIRMA Y HUELLA - SOLICITANTE
-           ========================================================= */
 
         parametros.put(
                 "firma_solicitante",
@@ -178,7 +168,6 @@ public class FemprobienCreditPdfService {
                 )
         );
 
-
         parametros.put(
                 "huella_solicitante",
                 prepararImagenTransparente(
@@ -189,11 +178,6 @@ public class FemprobienCreditPdfService {
                         )
                 )
         );
-
-
-        /* =========================================================
-           FIRMA Y HUELLA - DEUDOR 1
-           ========================================================= */
 
         parametros.put(
                 "firma_deudor1",
@@ -218,11 +202,6 @@ public class FemprobienCreditPdfService {
                 )
         );
 
-
-        /* =========================================================
-           FIRMA Y HUELLA - DEUDOR 2
-           ========================================================= */
-
         parametros.put(
                 "firma_deudor2",
                 prepararImagenTransparente(
@@ -246,11 +225,6 @@ public class FemprobienCreditPdfService {
                 )
         );
 
-
-        /* =========================================================
-           FIRMAS ADMINISTRATIVAS
-           ========================================================= */
-
         parametros.put(
                 "firma_gerente",
                 resolverArchivoBiometrico(
@@ -270,15 +244,6 @@ public class FemprobienCreditPdfService {
                 )
         );
 
-
-        /*
-         * El reporte actual utiliza:
-         *
-         * REPORT_COUNT = 1 -> página 1
-         * REPORT_COUNT = 2 -> página 2
-         *
-         * Por eso usamos DOS registros vacíos.
-         */
         JasperPrint jasperPrint =
                 JasperFillManager.fillReport(
                         report,
@@ -295,19 +260,10 @@ public class FemprobienCreditPdfService {
                 );
     }
 
-
-    /* =========================================================
-       CARGA / COMPILACIÓN DEL REPORTE
-       ========================================================= */
-
     private JasperReport obtenerReporte(
             Path reportDir
     ) throws Exception {
 
-        /*
-         * Si ya está cargado durante este despliegue,
-         * no volvemos a cargarlo ni compilarlo.
-         */
         if (
                 reporteCache != null
         ) {
@@ -358,12 +314,6 @@ public class FemprobienCreditPdfService {
                             );
 
 
-            /*
-             * =====================================================
-             * CASO 1
-             * Ya existe .jasper y está actualizado.
-             * =====================================================
-             */
             if (
                     existeJasper &&
                             (
@@ -393,14 +343,6 @@ public class FemprobienCreditPdfService {
             }
 
 
-            /*
-             * =====================================================
-             * CASO 2
-             * No existe .jasper o el JRXML es más reciente.
-             *
-             * Compilar UNA SOLA VEZ y guardar solicitudCredito.jasper.
-             * =====================================================
-             */
             if (
                     existeJrxml
             ) {
@@ -436,9 +378,6 @@ public class FemprobienCreditPdfService {
                         );
 
 
-                /*
-                 * Guardar físicamente el objeto compilado.
-                 */
                 JRSaver.saveObject(
                         reporteCompilado,
                         archivoJasper.toFile()
@@ -460,13 +399,6 @@ public class FemprobienCreditPdfService {
                 return reporteCache;
             }
 
-
-            /*
-             * =====================================================
-             * CASO 3
-             * No existe ni JRXML ni JASPER.
-             * =====================================================
-             */
             throw new IllegalStateException(
                     "No se encontró solicitudCredito.jrxml ni " +
                             "solicitudCredito.jasper en: " +
@@ -478,10 +410,6 @@ public class FemprobienCreditPdfService {
     }
 
 
-    /**
-     * Retorna true cuando el .jasper fue generado después
-     * o al mismo tiempo que el .jrxml.
-     */
     private boolean jasperEstaActualizado(
             Path jrxml,
             Path jasper
@@ -511,19 +439,10 @@ public class FemprobienCreditPdfService {
                 Exception e
         ) {
 
-            /*
-             * Si no podemos determinar las fechas,
-             * priorizamos el .jasper ya compilado para no
-             * compilar repetidamente por un problema de filesystem.
-             */
             return true;
         }
     }
 
-
-    /* =========================================================
-       VALIDACIONES
-       ========================================================= */
 
     private void validarNumeroSolicitud(
             Integer numeroSolicitud
@@ -613,23 +532,6 @@ public class FemprobienCreditPdfService {
         return path.toFile();
     }
 
-
-    /* =========================================================
-       FIRMA / HUELLA
-       ========================================================= */
-
-    /**
-     * Convierte la ruta guardada en SQL a un archivo físico.
-     *
-     * Ejemplo SQL:
-     *
-     * 3/firma_solicitante_20260901_101500.png
-     *
-     * Ruta física:
-     *
-     * C:/wildfly-10.1.0.Final/standalone/jasper/FEMPROBN_NOVAWEB/FEMPROBIEN/creditos/3/
-     * firma_solicitante_20260901_101500.png
-     */
     private File resolverArchivoBiometrico(
             Object rutaObj
     ) {
@@ -675,10 +577,6 @@ public class FemprobienCreditPdfService {
                         .normalize();
 
 
-        /*
-         * Si por alguna razón la BD contiene una ruta absoluta,
-         * también la soportamos.
-         */
         Path rutaRecibida =
                 Paths.get(
                         ruta
@@ -706,10 +604,6 @@ public class FemprobienCreditPdfService {
                             .normalize();
 
 
-            /*
-             * Protección contra:
-             * ../../archivo
-             */
             if (
                     !archivo.startsWith(
                             base
@@ -746,25 +640,6 @@ public class FemprobienCreditPdfService {
         return archivo.toFile();
     }
 
-    /* =========================================================
-       PROCESAR FIRMA / HUELLA CON FONDO TRANSPARENTE
-       ========================================================= */
-
-    /**
-     * Convierte una firma o huella a PNG ARGB transparente.
-     *
-     * La lógica no modifica el archivo original.
-     * Genera un archivo cacheado junto al original:
-     *
-     * archivo.png
-     * archivo_pdf_transparente.png
-     *
-     * Los píxeles blancos y grises claros se vuelven transparentes.
-     * Los trazos oscuros se conservan y se refuerza ligeramente su alpha.
-     *
-     * Esto también elimina visualmente fondos tipo tablero/checkerboard
-     * que hayan quedado incorporados en imágenes de firma.
-     */
     private File prepararImagenTransparente(
             File archivoOriginal
     ) {
@@ -814,10 +689,6 @@ public class FemprobienCreditPdfService {
                             : nombre;
 
 
-            /*
-             * Nuevo sufijo para no reutilizar la imagen procesada
-             * por versiones anteriores.
-             */
             File archivoSalida =
                     new File(
                             archivoOriginal.getParentFile(),
@@ -857,10 +728,6 @@ public class FemprobienCreditPdfService {
                     -1;
 
 
-            /*
-             * 1. Convertir fondo claro a transparente.
-             * 2. Detectar el rectángulo real ocupado por la tinta.
-             */
             for (
                     int y = 0;
                     y < original.getHeight();
@@ -905,11 +772,6 @@ public class FemprobienCreditPdfService {
                             255 -
                                     luminancia;
 
-
-                    /*
-                     * Blanco y gris muy claro:
-                     * completamente transparente.
-                     */
                     if (
                             alphaBase < 48
                     ) {
@@ -935,10 +797,6 @@ public class FemprobienCreditPdfService {
                             );
 
 
-                    /*
-                     * Trazos casi transparentes tampoco cuentan
-                     * para el recorte.
-                     */
                     if (
                             alpha < 22
                     ) {
@@ -1022,13 +880,6 @@ public class FemprobienCreditPdfService {
             BufferedImage resultado;
 
 
-            /*
-             * Si encontramos tinta, recortamos los márgenes transparentes.
-             *
-             * Esto es especialmente importante para las firmas:
-             * el elemento Jasper puede ser pequeño, pero el trazo ocupa
-             * prácticamente todo el ancho disponible.
-             */
             if (
                     maxX >= minX &&
                             maxY >= minY

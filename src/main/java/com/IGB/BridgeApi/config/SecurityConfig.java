@@ -31,27 +31,12 @@ public class SecurityConfig
 
         http
 
-                /* =================================================
-                   CORS
-                   ================================================= */
-
                 .cors()
 
                 .and()
 
-
-                /* =================================================
-                   CSRF
-                   API REST STATELESS
-                   ================================================= */
-
                 .csrf()
                 .disable()
-
-
-                /* =================================================
-                   SESIONES
-                   ================================================= */
 
                 .sessionManagement()
                 .sessionCreationPolicy(
@@ -60,15 +45,7 @@ public class SecurityConfig
 
                 .and()
 
-
-                /* =================================================
-                   AUTORIZACIONES
-                   ================================================= */
-
                 .authorizeRequests()
-
-
-                /* OPTIONS PARA CORS */
 
                 .antMatchers(
                         org.springframework.http.HttpMethod.OPTIONS,
@@ -77,15 +54,11 @@ public class SecurityConfig
                 .permitAll()
 
 
-                /* LOGIN */
-
                 .antMatchers(
                         "/authenticate/**"
                 )
                 .permitAll()
 
-
-                /* WALI */
 
                 .antMatchers(
                         "/wali/**"
@@ -93,15 +66,10 @@ public class SecurityConfig
                 .permitAll()
 
 
-                /* REDPLAS */
-
                 .antMatchers(
                         "/redplas/**"
                 )
                 .permitAll()
-
-
-                /* TWILIO */
 
                 .antMatchers(
                         "/twilio/**"
@@ -109,15 +77,11 @@ public class SecurityConfig
                 .permitAll()
 
 
-                /* FEMPROBIEN */
-
                 .antMatchers(
                         "/femprobien/**"
                 )
                 .permitAll()
 
-
-                /* ACTUATOR */
 
                 .antMatchers(
                         "/actuator/health",
@@ -126,15 +90,9 @@ public class SecurityConfig
                 .permitAll()
 
 
-                /* RESTO REQUIERE JWT */
-
                 .anyRequest()
                 .authenticated();
 
-
-        /* =========================================================
-           FILTRO JWT
-           ========================================================= */
 
         http.addFilterBefore(
 

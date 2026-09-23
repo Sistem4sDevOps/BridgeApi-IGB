@@ -31,9 +31,6 @@ public class FemprobienReportServices {
                 sqlServerJdbcTemplate;
     }
 
-    /* =========================================================
-       GENERAR ESTADO DE CUENTA
-       ========================================================= */
 
     public Map<String, Object> generarEstadoCuenta(
             String codAsp) throws Exception {
@@ -70,12 +67,6 @@ public class FemprobienReportServices {
             );
         }
 
-        /*
-         * Compilar únicamente cuando:
-         *
-         * 1. No existe accountStatement.jasper
-         * 2. El JRXML es más reciente que el JASPER
-         */
         if (!jasperFile.exists() ||
                 jrxmlFile.lastModified()
                         > jasperFile.lastModified()) {
@@ -92,10 +83,6 @@ public class FemprobienReportServices {
                     );
         }
 
-        /*
-         * El JRXML es basado en parámetros,
-         * no en una consulta SQL interna.
-         */
         JasperPrint jasperPrint =
                 JasperFillManager.fillReport(
                         jasperPath,
@@ -157,9 +144,6 @@ public class FemprobienReportServices {
         return respuesta;
     }
 
-    /* =========================================================
-       OBTENER PDF YA GENERADO
-       ========================================================= */
 
     public File obtenerEstadoCuentaPdf(
             String codAsp) throws Exception {
@@ -196,9 +180,6 @@ public class FemprobienReportServices {
         return pdf;
     }
 
-    /* =========================================================
-       CONSULTAR DATOS DEL ESTADO DE CUENTA
-       ========================================================= */
 
     private Map<String, Object>
     consultarDatosEstadoCuenta(
@@ -260,10 +241,6 @@ public class FemprobienReportServices {
     }
 
 
-    /* =========================================================
-       CREAR PARÁMETROS JASPER
-       ========================================================= */
-
     private Map<String, Object>
     crearParametrosReporte(
             Map<String, Object> datos) {
@@ -312,9 +289,6 @@ public class FemprobienReportServices {
         );
 
 
-        /* =====================================================
-           NUEVA ESTRUCTURA tblAportes
-           ===================================================== */
 
         params.put(
                 "saldoAporteSocialConsolidado",
@@ -388,10 +362,6 @@ public class FemprobienReportServices {
     }
 
 
-    /* =========================================================
-       VALIDACIONES / UTILIDADES
-       ========================================================= */
-
     private void validarCodigoAsociado(
             String codAsp) {
 
@@ -403,10 +373,7 @@ public class FemprobienReportServices {
             );
         }
 
-        /*
-         * Evita que el valor termine formando
-         * una ruta de archivo insegura.
-         */
+
         if (!codAsp.trim()
                 .matches("[A-Za-z0-9_-]+")) {
 

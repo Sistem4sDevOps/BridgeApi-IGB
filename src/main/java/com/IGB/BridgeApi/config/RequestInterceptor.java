@@ -21,7 +21,6 @@ public class RequestInterceptor implements HandlerInterceptor {
         System.out.println("X-Employee: " + employee);
         System.out.println("X-Pruebas: " + pruebas);
 
-        // Puedes agregar lógica adicional aquí si lo deseas, pero no devolver error si los encabezados están ausentes.
         return true;
     }
 }

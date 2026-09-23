@@ -125,9 +125,6 @@ public class FemprobienCreditoHistoricoController {
     }
 
 
-    /* =========================================================
-       RESPUESTAS
-       ========================================================= */
     private ResponseEntity<?> badRequest(
             String message) {
 

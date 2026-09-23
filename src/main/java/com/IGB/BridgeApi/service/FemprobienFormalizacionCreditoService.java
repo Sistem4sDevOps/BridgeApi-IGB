@@ -53,17 +53,6 @@ public class FemprobienFormalizacionCreditoService {
                 );
     }
 
-
-    /* =========================================================
-       FORMALIZAR CRÉDITO
-
-       1. La solicitud original permanece en tblAsociadoCredito.
-       2. Se crea la formalización/histórico en tblCredito.
-       3. Se crea el registro operativo en tblAporteCredito.
-
-       Ambos INSERT se ejecutan en una misma transacción.
-       Si uno falla, se hace ROLLBACK de ambos.
-       ========================================================= */
     public synchronized Map<String, Object> formalizarCredito(
             final Integer numeroSolicitud,
             final FormalizarCreditoDTO dto) {
@@ -287,9 +276,6 @@ public class FemprobienFormalizacionCreditoService {
     }
 
 
-    /* =========================================================
-       INSERT tblCredito
-       ========================================================= */
     private Integer insertarTblCredito(
             Integer idSolicitud,
             Integer numeroSolicitud,
@@ -425,11 +411,6 @@ public class FemprobienFormalizacionCreditoService {
     }
 
 
-    /* =========================================================
-       INSERT tblAporteCredito
-
-       Esta es la tabla operativa principal.
-       ========================================================= */
     private void insertarTblAporteCredito(
             Integer idCredito,
             Integer idSolicitud,
@@ -575,9 +556,6 @@ public class FemprobienFormalizacionCreditoService {
     }
 
 
-    /* =========================================================
-       CONSULTAR FORMALIZACIÓN POR SOLICITUD
-       ========================================================= */
     public Map<String, Object> consultarFormalizacion(
             Integer numeroSolicitud) {
 
@@ -635,9 +613,6 @@ public class FemprobienFormalizacionCreditoService {
     }
 
 
-    /* =========================================================
-       OBTENER CRÉDITO FORMALIZADO
-       ========================================================= */
     private Map<String, Object> obtenerCreditoFormalizado(
             Integer numeroSolicitud) {
 
@@ -665,15 +640,6 @@ public class FemprobienFormalizacionCreditoService {
     }
 
 
-    /* =========================================================
-       CONSULTA UNIFICADA tblCredito + tblAporteCredito
-
-       tblCredito:
-       histórico de formalización.
-
-       tblAporteCredito:
-       estado operativo actual.
-       ========================================================= */
     private String sqlConsultaCreditoFormalizado() {
 
         return
@@ -733,9 +699,6 @@ public class FemprobienFormalizacionCreditoService {
     }
 
 
-    /* =========================================================
-       SOLICITUD APROBADA
-       ========================================================= */
     private Map<String, Object> obtenerSolicitudAprobada(
             Integer numeroSolicitud) {
 
@@ -834,9 +797,6 @@ public class FemprobienFormalizacionCreditoService {
     }
 
 
-    /* =========================================================
-       EVITAR DOBLE FORMALIZACIÓN
-       ========================================================= */
     private void validarNoFormalizado(
             Integer numeroSolicitud,
             Integer idSolicitud) {
@@ -900,9 +860,6 @@ public class FemprobienFormalizacionCreditoService {
     }
 
 
-    /* =========================================================
-       VALIDACIONES
-       ========================================================= */
     private void validarNumeroSolicitud(
             Integer numeroSolicitud) {
 
@@ -1015,9 +972,6 @@ public class FemprobienFormalizacionCreditoService {
     }
 
 
-    /* =========================================================
-       FORMA DE DESCUENTO
-       ========================================================= */
     private String obtenerFormaDescuento(
             Map<String, Object> solicitud) {
 
@@ -1061,9 +1015,6 @@ public class FemprobienFormalizacionCreditoService {
     }
 
 
-    /* =========================================================
-       PERIODICIDAD
-       ========================================================= */
     private String normalizarPeriodicidad(
             String value) {
 
@@ -1103,9 +1054,6 @@ public class FemprobienFormalizacionCreditoService {
     }
 
 
-    /* =========================================================
-       CONVERSIONES
-       ========================================================= */
     private Integer toInteger(
             Object value) {
 

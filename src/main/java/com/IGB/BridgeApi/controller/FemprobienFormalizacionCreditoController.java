@@ -114,9 +114,6 @@ public class FemprobienFormalizacionCreditoController {
     }
 
 
-    /* =========================================================
-       RESPUESTAS
-       ========================================================= */
     private ResponseEntity<?> badRequest(
             String message) {
 

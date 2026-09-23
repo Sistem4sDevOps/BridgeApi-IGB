@@ -225,10 +225,6 @@ public class FemprobienCreditoHistoricoService {
         return resultado.get(0);
     }
 
-
-    /* =========================================================
-       HELPERS
-       ========================================================= */
     private String limpiarTexto(
             String value) {
 

@@ -45,14 +45,6 @@ public class MicrosoftGraphTokenService {
     }
 
 
-    /**
-     * Validación de diagnóstico al iniciar BridgeApi.
-     *
-     * IMPORTANTE:
-     * - No imprime el Client Secret.
-     * - No imprime access tokens.
-     * - Solo informa si la configuración fue encontrada.
-     */
     @PostConstruct
     public void validarConfiguracionInicial() {
 
@@ -95,14 +87,6 @@ public class MicrosoftGraphTokenService {
     }
 
 
-    /**
-     * Obtiene un access token de Microsoft Entra mediante
-     * OAuth 2.0 Client Credentials.
-     *
-     * El token queda únicamente en memoria y se reutiliza mientras
-     * siga siendo válido. Se renueva automáticamente 60 segundos
-     * antes de su vencimiento.
-     */
     public synchronized String obtenerAccessToken() {
 
         validarConfiguracion();

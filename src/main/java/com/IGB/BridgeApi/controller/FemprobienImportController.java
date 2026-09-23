@@ -23,9 +23,7 @@ import java.util.Set;
 @RequestMapping("/femprobien/importacion")
 public class FemprobienImportController {
 
-    /* =========================================================
-       USUARIOS AUTORIZADOS PARA IMPORTAR DATOS
-       ========================================================= */
+
     private static final Set<String> USUARIOS_IMPORTACION =
             new HashSet<String>(
                     Arrays.asList(
@@ -306,14 +304,6 @@ public class FemprobienImportController {
     }
 
 
-    /* =========================================================
-       VALIDAR USUARIO AUTORIZADO
-
-       IMPORTANTE:
-       Esta validación utiliza temporalmente el usuario enviado
-       por el frontend. Cuando JWT esté implementado, el usuario
-       debe obtenerse del token autenticado.
-       ========================================================= */
     private String validarUsuarioImportacion(
             String usuario) {
 
@@ -355,9 +345,6 @@ public class FemprobienImportController {
     }
 
 
-    /* =========================================================
-       RESPONSE 400
-       ========================================================= */
     private ResponseEntity<?> badRequest(
             String message) {
 
@@ -384,9 +371,6 @@ public class FemprobienImportController {
     }
 
 
-    /* =========================================================
-       RESPONSE 403
-       ========================================================= */
     private ResponseEntity<?> forbidden(
             String message) {
 
@@ -413,9 +397,6 @@ public class FemprobienImportController {
     }
 
 
-    /* =========================================================
-       RESPONSE 500
-       ========================================================= */
     private ResponseEntity<?> internalError(
             String message,
             Exception e) {

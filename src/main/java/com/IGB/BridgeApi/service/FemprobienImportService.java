@@ -54,9 +54,6 @@ public class FemprobienImportService {
             "ERROR";
 
 
-    /* =========================================================
-       ENCABEZADOS MÍNIMOS DEL PLANO
-       ========================================================= */
     private static final List<String> ENCABEZADOS_REQUERIDOS =
             Arrays.asList(
                     "DOCUMENTO",
@@ -73,12 +70,6 @@ public class FemprobienImportService {
             );
 
 
-    /* =========================================================
-       COLUMNAS QUE FEMPROBIEN YA UTILIZA EN ESTADO DE CUENTA
-
-       Se exige que estas siete columnas puedan mapearse antes
-       de habilitar el procesamiento real.
-       ========================================================= */
     private static final List<String> COLUMNAS_APORTES_CLAVE =
             Arrays.asList(
                     "SaldoAporteSocialConsolidado_3AniosNuevoCiclo",
@@ -125,23 +116,12 @@ public class FemprobienImportService {
                         transactionManager
                 );
 
-        /*
-         * El proceso completo del Excel será atómico.
-         * Si una fila falla durante INSERT/UPDATE, se revierte
-         * todo el archivo.
-         */
         this.transactionTemplate.setIsolationLevel(
                 TransactionDefinition.ISOLATION_SERIALIZABLE
         );
     }
 
 
-    /* =========================================================
-       VALIDAR ARCHIVO
-
-       NO modifica tblAsociado.
-       NO modifica tblAportes.
-       ========================================================= */
     public Map<String, Object> validarArchivo(
             MultipartFile archivo) throws Exception {
 
@@ -158,23 +138,6 @@ public class FemprobienImportService {
     }
 
 
-    /* =========================================================
-       PROCESAR ARCHIVO
-
-       REGLAS:
-
-       1) No existe tblAsociado
-          -> INSERT tblAsociado
-          -> INSERT tblAportes
-
-       2) Existe tblAsociado pero no tblAportes
-          -> INSERT tblAportes
-
-       3) Existen ambos
-          -> UPDATE tblAportes
-
-       Los asociados existentes NO se actualizan.
-       ========================================================= */
     public Map<String, Object> procesarArchivo(
             MultipartFile archivo,
             String usuario) throws Exception {
@@ -229,9 +192,6 @@ public class FemprobienImportService {
     }
 
 
-    /* =========================================================
-       PROCESAR DENTRO DE TRANSACCIÓN
-       ========================================================= */
     private Map<String, Object> procesarDentroTransaccion(
             MultipartFile archivo,
             AnalisisArchivo analisis,
@@ -368,10 +328,7 @@ public class FemprobienImportService {
 
             } catch (Exception e) {
 
-                /*
-                 * Lanzar RuntimeException provoca rollback de TODO
-                 * el archivo. No quedan cargas parciales.
-                 */
+
                 throw new IllegalStateException(
                         "Error procesando la fila "
                                 + fila.numeroFila
@@ -413,12 +370,7 @@ public class FemprobienImportService {
                 usuario
         );
 
-        /*
-         * Cada fila cuenta una sola vez:
-         * - nuevo asociado + aporte = 1 fila
-         * - nuevo aporte = 1 fila
-         * - update = 1 fila
-         */
+
         response.put(
                 "totalProcesadas",
                 detalleProceso.size()
@@ -464,9 +416,7 @@ public class FemprobienImportService {
     }
 
 
-    /* =========================================================
-       ANALIZAR ARCHIVO
-       ========================================================= */
+
     private AnalisisArchivo analizarArchivo(
             MultipartFile archivo) throws Exception {
 
@@ -650,22 +600,6 @@ public class FemprobienImportService {
                 }
 
 
-                /*
-                 * El archivo estándar de FEMPROBIEN contiene al final
-                 * algunas filas informativas que NO corresponden a
-                 * asociados, por ejemplo:
-                 *
-                 *   CONSIGNAR
-                 *   CRUCE CON CREDITO Y CONSIGNAR DIFERENCIA (SI APLICA)
-                 *   Nuevo
-                 *
-                 * Estas filas vienen por defecto en el formato Excel,
-                 * no tienen DOCUMENTO y por lo tanto:
-                 *
-                 * - NO se cuentan como registros.
-                 * - NO se marcan como error.
-                 * - NO se procesan en tblAsociado ni tblAportes.
-                 */
                 if (
                         esFilaInformativaExcel(
                                 documento,
@@ -850,9 +784,6 @@ public class FemprobienImportService {
     }
 
 
-    /* =========================================================
-       RESPUESTA DE VALIDACIÓN
-       ========================================================= */
     private Map<String, Object> construirRespuestaValidacion(
             MultipartFile archivo,
             AnalisisArchivo analisis) {
@@ -988,9 +919,6 @@ public class FemprobienImportService {
     }
 
 
-    /* =========================================================
-       CREAR NUEVO ASOCIADO
-       ========================================================= */
     private AsociadoDb insertarAsociadoNuevo(
             FilaImportacion fila) {
 
@@ -1061,9 +989,6 @@ public class FemprobienImportService {
     }
 
 
-    /* =========================================================
-       CONSTRUIR DATOS DE tblAportes
-       ========================================================= */
     private Map<String, Object> construirDatosAporte(
             FilaImportacion fila,
             AsociadoDb asociado,
@@ -1152,9 +1077,6 @@ public class FemprobienImportService {
     }
 
 
-    /* =========================================================
-       INSERT tblAportes
-       ========================================================= */
     private void insertarAporte(
             Map<String, Object> datos,
             Map<String, ColumnaDb> columnasDb) {
@@ -1235,9 +1157,6 @@ public class FemprobienImportService {
     }
 
 
-    /* =========================================================
-       UPDATE tblAportes
-       ========================================================= */
     private void actualizarAporte(
             String documento,
             Map<String, Object> datos,
@@ -1267,10 +1186,6 @@ public class FemprobienImportService {
             }
 
 
-            /*
-             * La llave nunca se cambia durante UPDATE.
-             * Tampoco se cambia id_aso del aporte existente.
-             */
             if (
                     "cod_asp".equalsIgnoreCase(
                             columna.nombre
@@ -1335,9 +1250,6 @@ public class FemprobienImportService {
     }
 
 
-    /* =========================================================
-       MAPEO DE ENCABEZADOS EXCEL -> COLUMNAS REALES tblAportes
-       ========================================================= */
     private MapeoColumnas mapearColumnasAportes(
             Row filaEncabezados,
             DataFormatter formatter,
@@ -1392,10 +1304,6 @@ public class FemprobienImportService {
                     );
 
 
-            /*
-             * Estas columnas se manejan expresamente para
-             * tblAsociado / llave y no se tratan como saldo.
-             */
             if (
                     "DOCUMENTO".equals(
                             normalizarEncabezado(encabezado)
@@ -1440,11 +1348,6 @@ public class FemprobienImportService {
 
             if (columna == null) {
 
-                /*
-                 * Segundo intento: ignorar la palabra ASOCIADO.
-                 * Algunos encabezados del Excel la incluyen y
-                 * algunas columnas históricas de SQL no.
-                 */
                 String comparable =
                         encabezadoNormalizado.replace(
                                 "ASOCIADO",
@@ -1629,9 +1532,6 @@ public class FemprobienImportService {
     }
 
 
-    /* =========================================================
-       LEER VALORES DE APORTES
-       ========================================================= */
     private Map<String, Object> leerValoresAportes(
             Row row,
             Map<Integer, ColumnaDb> columnas,
@@ -1775,14 +1675,6 @@ public class FemprobienImportService {
                             == CellType.ERROR
             ) {
 
-                /*
-                 * Para columnas numéricas de tblAportes:
-                 * si Excel devuelve #N/A, se interpreta como 0.
-                 *
-                 * Otros errores de Excel (#DIV/0!, #VALUE!, etc.)
-                 * continúan generando error para evitar guardar
-                 * información incorrecta silenciosamente.
-                 */
                 if (
                         value.getErrorValue()
                                 == FormulaError.NA.getCode()
@@ -1854,10 +1746,6 @@ public class FemprobienImportService {
                         || "N/A".equalsIgnoreCase(texto.trim())
         ) {
 
-            /*
-             * Los valores vacíos, guion y #N/A de columnas
-             * numéricas se almacenan como 0.
-             */
             return BigDecimal.ZERO;
         }
 
@@ -1987,9 +1875,6 @@ public class FemprobienImportService {
     }
 
 
-    /* =========================================================
-       COLUMNAS REALES SQL SERVER
-       ========================================================= */
     private Map<String, ColumnaDb> obtenerColumnasDb(
             String tabla) {
 
@@ -2082,19 +1967,10 @@ public class FemprobienImportService {
     }
 
 
-    /* =========================================================
-       FILAS INFORMATIVAS DEL FORMATO EXCEL
-
-       Estas filas vienen por defecto al final de la hoja BASE
-       y no corresponden a asociados.
-       ========================================================= */
     private boolean esFilaInformativaExcel(
             String documento,
             String nombre) {
 
-        /*
-         * Si existe DOCUMENTO, nunca se considera fila informativa.
-         */
         if (
                 documento != null
                         && !documento.trim().isEmpty()
@@ -2103,23 +1979,6 @@ public class FemprobienImportService {
         }
 
 
-        /*
-         * IMPORTANTE:
-         *
-         * normalizarClave() elimina espacios, tildes, paréntesis
-         * y cualquier carácter diferente de A-Z / 0-9.
-         *
-         * Ejemplo:
-         *
-         * CRUCE CON CREDITO Y CONSIGNAR DIFERENCIA (SI APLICA)
-         *
-         * queda:
-         *
-         * CRUCECONCREDITOYCONSIGNARDIFERENCIASIAPLICA
-         *
-         * Por eso las comparaciones también deben hacerse contra
-         * valores normalizados.
-         */
         String texto =
                 normalizarClave(
                         nombre
@@ -2134,9 +1993,6 @@ public class FemprobienImportService {
         }
 
 
-        /*
-         * Filas informativas estándar del formato.
-         */
         if (
                 "CONSIGNAR".equals(
                         texto
@@ -2149,19 +2005,12 @@ public class FemprobienImportService {
         }
 
 
-        /*
-         * Se usa startsWith para aceptar pequeñas variaciones del
-         * texto, saltos de línea o la parte "(SI APLICA)".
-         */
         return texto.startsWith(
                 "CRUCECONCREDITOYCONSIGNARDIFERENCIA"
         );
     }
 
 
-    /* =========================================================
-       ASOCIADOS EXISTENTES
-       ========================================================= */
     private Map<String, AsociadoDb> cargarAsociados() {
 
         String sql =
@@ -2291,9 +2140,6 @@ public class FemprobienImportService {
     }
 
 
-    /* =========================================================
-       APORTES EXISTENTES
-       ========================================================= */
     private Set<String> cargarDocumentosAportes() {
 
         String sql =
@@ -2358,9 +2204,6 @@ public class FemprobienImportService {
     }
 
 
-    /* =========================================================
-       ENCABEZADOS
-       ========================================================= */
     private Map<String, Integer> obtenerEncabezados(
             Row row,
             DataFormatter formatter,
@@ -2454,9 +2297,6 @@ public class FemprobienImportService {
     }
 
 
-    /* =========================================================
-       ARCHIVO
-       ========================================================= */
     private void validarArchivoBasico(
             MultipartFile archivo) {
 
@@ -2504,9 +2344,6 @@ public class FemprobienImportService {
     }
 
 
-    /* =========================================================
-       LEER DOCUMENTO
-       ========================================================= */
     private String leerDocumento(
             Row row,
             Integer columna,
@@ -2562,7 +2399,6 @@ public class FemprobienImportService {
             }
 
         } catch (Exception e) {
-            // Continuar con DataFormatter.
         }
 
 
@@ -2575,10 +2411,6 @@ public class FemprobienImportService {
         );
     }
 
-
-    /* =========================================================
-       TEXTO
-       ========================================================= */
     private String leerTexto(
             Row row,
             Integer columna,
@@ -2666,10 +2498,6 @@ public class FemprobienImportService {
         }
     }
 
-
-    /* =========================================================
-       FECHAS
-       ========================================================= */
     private Date leerFechaSql(
             Row row,
             Integer columna,
@@ -2880,7 +2708,6 @@ public class FemprobienImportService {
                 );
 
             } catch (ParseException e) {
-                // probar siguiente formato
             }
         }
 
@@ -2895,9 +2722,6 @@ public class FemprobienImportService {
     }
 
 
-    /* =========================================================
-       NORMALIZACIONES
-       ========================================================= */
     private String normalizarDocumento(
             String documento) {
 
@@ -2929,7 +2753,6 @@ public class FemprobienImportService {
 
         return resultado;
     }
-
 
     private String normalizarEncabezado(
             String texto) {
@@ -2972,11 +2795,6 @@ public class FemprobienImportService {
                 );
 
 
-        /*
-         * Unificar formas usadas entre encabezados y SQL:
-         * - Años / Anios
-         * - 31/12/2025 / 31Diciembre2025
-         */
         valor =
                 valor.replace(
                         "ANIOS",
@@ -2997,9 +2815,6 @@ public class FemprobienImportService {
     }
 
 
-    /* =========================================================
-       UTILIDADES SQL
-       ========================================================= */
     private boolean convertirBooleanSql(
             Object valor) {
 
@@ -3113,9 +2928,6 @@ public class FemprobienImportService {
     }
 
 
-    /* =========================================================
-       CLASES INTERNAS
-       ========================================================= */
     private static class ColumnaDb {
         private String nombre;
         private String tipoDato;

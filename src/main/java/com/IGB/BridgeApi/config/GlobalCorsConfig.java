@@ -17,20 +17,9 @@ public class GlobalCorsConfig {
         CorsConfiguration config =
                 new CorsConfiguration();
 
-
-        /* =========================================================
-           ORÍGENES
-           Permitir peticiones desde cualquier origen
-           ========================================================= */
-
         config.setAllowedOrigins(
                 Arrays.asList("*")
         );
-
-
-        /* =========================================================
-           MÉTODOS
-           ========================================================= */
 
         config.setAllowedMethods(
                 Arrays.asList(
@@ -43,19 +32,9 @@ public class GlobalCorsConfig {
                 )
         );
 
-
-        /* =========================================================
-           HEADERS PERMITIDOS
-           ========================================================= */
-
         config.setAllowedHeaders(
                 Arrays.asList("*")
         );
-
-
-        /* =========================================================
-           HEADERS EXPUESTOS
-           ========================================================= */
 
         config.setExposedHeaders(
                 Arrays.asList(
@@ -64,33 +43,11 @@ public class GlobalCorsConfig {
                 )
         );
 
-
-        /* =========================================================
-           CREDENCIALES
-
-           IMPORTANTE:
-           Si usamos "*" como origen, no debemos utilizar
-           allowCredentials(true).
-
-           El JWT puede seguir enviándose normalmente mediante:
-           Authorization: Bearer <token>
-           ========================================================= */
-
         config.setAllowCredentials(false);
-
-
-        /* =========================================================
-           CACHE DEL PREFLIGHT
-           ========================================================= */
 
         config.setMaxAge(
                 3600L
         );
-
-
-        /* =========================================================
-           APLICAR A TODA LA API
-           ========================================================= */
 
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
@@ -100,7 +57,6 @@ public class GlobalCorsConfig {
                 "/**",
                 config
         );
-
 
         return source;
     }

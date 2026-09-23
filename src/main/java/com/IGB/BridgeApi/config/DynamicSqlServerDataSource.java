@@ -12,7 +12,6 @@ public class DynamicSqlServerDataSource {
 
     public DriverManagerDataSource getDataSource(String schema) {
         DriverManagerDataSource dataSource = new DriverManagerDataSource();
-        // Construye la URL de la base de datos con el esquema dinámico
         String dynamicUrl = String.format("%s;databaseName=%s", sqlServerConfig.getUrl(), schema);
         dataSource.setDriverClassName(sqlServerConfig.getDriverClassName());
         dataSource.setUrl(dynamicUrl);

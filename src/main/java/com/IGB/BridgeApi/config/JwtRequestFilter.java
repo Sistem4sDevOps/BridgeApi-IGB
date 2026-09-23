@@ -38,11 +38,6 @@ public class JwtRequestFilter extends OncePerRequestFilter {
     private static final AntPathMatcher PATH_MATCHER =
             new AntPathMatcher();
 
-
-    /* =========================================================
-       RUTAS PÚBLICAS
-       ========================================================= */
-
     private static final List<String> PUBLIC_PATTERNS =
             Arrays.asList(
 
@@ -67,17 +62,8 @@ public class JwtRequestFilter extends OncePerRequestFilter {
             );
 
 
-    /* =========================================================
-       JWT UTIL
-       ========================================================= */
-
     @Autowired
     private JwtUtil jwtUtil;
-
-
-    /* =========================================================
-       NORMALIZAR PATH
-       ========================================================= */
 
     private String getNormalizedPath(
             HttpServletRequest request
@@ -88,19 +74,6 @@ public class JwtRequestFilter extends OncePerRequestFilter {
 
         String contextPath =
                 request.getContextPath();
-
-        /*
-         * Ejemplo:
-         *
-         * URI:
-         * /BridgeApi/femprobien/test
-         *
-         * Context:
-         * /BridgeApi
-         *
-         * Resultado:
-         * /femprobien/test
-         */
 
         if (
                 contextPath != null
@@ -125,20 +98,9 @@ public class JwtRequestFilter extends OncePerRequestFilter {
         return uri;
     }
 
-
-    /* =========================================================
-       VALIDAR RUTA PÚBLICA
-       ========================================================= */
-
     private boolean isPublic(
             HttpServletRequest request
     ) {
-
-        /*
-         * Siempre permitir OPTIONS.
-         *
-         * Es necesario para CORS.
-         */
 
         if (
                 "OPTIONS".equalsIgnoreCase(
@@ -182,11 +144,6 @@ public class JwtRequestFilter extends OncePerRequestFilter {
         return false;
     }
 
-
-    /* =========================================================
-       OMITIR JWT EN RUTAS PÚBLICAS
-       ========================================================= */
-
     @Override
     protected boolean shouldNotFilter(
             HttpServletRequest request
@@ -194,11 +151,6 @@ public class JwtRequestFilter extends OncePerRequestFilter {
 
         return isPublic(request);
     }
-
-
-    /* =========================================================
-       FILTRO JWT
-       ========================================================= */
 
     @Override
     protected void doFilterInternal(
@@ -217,10 +169,6 @@ public class JwtRequestFilter extends OncePerRequestFilter {
                         "Authorization"
                 );
 
-
-        /* =====================================================
-           NO EXISTE TOKEN
-           ===================================================== */
 
         if (
                 authorizationHeader == null
@@ -241,17 +189,8 @@ public class JwtRequestFilter extends OncePerRequestFilter {
 
         try {
 
-            /* =================================================
-               EXTRAER TOKEN
-               ================================================= */
-
             String jwt =
                     authorizationHeader.substring(7);
-
-
-            /* =================================================
-               VALIDAR TOKEN
-               ================================================= */
 
             if (!jwtUtil.validateToken(jwt)) {
 
@@ -267,18 +206,9 @@ public class JwtRequestFilter extends OncePerRequestFilter {
                 return;
             }
 
-
-            /* =================================================
-               EXTRAER USUARIO
-               ================================================= */
-
             String username =
                     jwtUtil.extractUsername(jwt);
 
-
-            /* =================================================
-               CREAR AUTENTICACIÓN
-               ================================================= */
 
             if (
                     username != null
@@ -301,21 +231,11 @@ public class JwtRequestFilter extends OncePerRequestFilter {
                                 Collections.emptyList()
                         );
 
-
-                /* =============================================
-                   DETALLES DE LA PETICIÓN
-                   ============================================= */
-
                 authenticationToken.setDetails(
 
                         new WebAuthenticationDetailsSource()
                                 .buildDetails(request)
                 );
-
-
-                /* =============================================
-                   GUARDAR AUTENTICACIÓN
-                   ============================================= */
 
                 SecurityContextHolder
                         .getContext()
@@ -341,11 +261,6 @@ public class JwtRequestFilter extends OncePerRequestFilter {
                     e
             );
         }
-
-
-        /* =====================================================
-           CONTINUAR
-           ===================================================== */
 
         filterChain.doFilter(
                 request,

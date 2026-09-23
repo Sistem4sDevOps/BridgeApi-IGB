@@ -75,9 +75,7 @@ public class FemprobienCreditController {
         }
     }
 
-    /* =========================================================
-       LISTAR SOLICITUDES
-       ========================================================= */
+
     @GetMapping("/solicitudes")
     public ResponseEntity<?> listarSolicitudes(
             @RequestParam(value = "estado", required = false)
@@ -97,9 +95,7 @@ public class FemprobienCreditController {
         }
     }
 
-    /* =========================================================
-       LISTAR SOLICITUDES DE UN ASOCIADO
-       ========================================================= */
+
     @GetMapping("/asociados/{codAsp}/solicitudes")
     public ResponseEntity<?> listarSolicitudesAsociado(
             @PathVariable String codAsp) {
@@ -116,9 +112,7 @@ public class FemprobienCreditController {
         }
     }
 
-    /* =========================================================
-       CONSULTAR UNA SOLICITUD
-       ========================================================= */
+
     @GetMapping("/solicitudes/{numeroSolicitud}")
     public ResponseEntity<?> consultarSolicitud(
             @PathVariable Integer numeroSolicitud) {
@@ -137,9 +131,7 @@ public class FemprobienCreditController {
         }
     }
 
-    /* =========================================================
-       CAMBIAR ESTADO
-       ========================================================= */
+
     @PatchMapping("/solicitudes/{numeroSolicitud}/estado")
     public ResponseEntity<?> cambiarEstado(
             @PathVariable Integer numeroSolicitud,
@@ -162,9 +154,7 @@ public class FemprobienCreditController {
         }
     }
 
-    /* =========================================================
-       HISTORIAL
-       ========================================================= */
+
     @GetMapping("/solicitudes/{numeroSolicitud}/historial")
     public ResponseEntity<?> consultarHistorial(
             @PathVariable Integer numeroSolicitud) {
@@ -253,12 +243,6 @@ public class FemprobienCreditController {
             }
 
 
-            /*
-             * TRAZA DE DIAGNÓSTICO.
-             *
-             * No imprime el contenido de las imágenes.
-             * Solamente nombre, tipo MIME y tamaño recibido.
-             */
             logArchivosBiometricosRecibidos(
                     numeroSolicitud,
                     firmaSolicitante,
@@ -286,13 +270,7 @@ public class FemprobienCreditController {
 
         } catch (IllegalArgumentException e) {
 
-            /*
-             * Un IllegalArgumentException representa una validación
-             * controlada del flujo biométrico.
-             *
-             * El mensaje se devuelve al frontend para que el usuario
-             * conozca exactamente qué debe corregir.
-             */
+
             logErrorBiometria(
                     numeroSolicitud,
                     "VALIDACION",
@@ -332,9 +310,7 @@ public class FemprobienCreditController {
         }
     }
 
-    /* =========================================================
-       CONSULTAR SI LA SOLICITUD YA TIENE ARCHIVOS
-       ========================================================= */
+
     @GetMapping("/solicitudes/{numeroSolicitud}/archivos/estado")
     public ResponseEntity<?> consultarEstadoArchivos(
             @PathVariable Integer numeroSolicitud) {
@@ -455,10 +431,6 @@ public class FemprobienCreditController {
                 );
     }
 
-
-    /* =========================================================
-       DIAGNÓSTICO DE CARGA BIOMÉTRICA
-       ========================================================= */
 
     private void logArchivosBiometricosRecibidos(
             Integer numeroSolicitud,
@@ -588,13 +560,7 @@ public class FemprobienCreditController {
                         )
         );
 
-        /*
-         * Durante la fase de pruebas dejamos el stack trace
-         * para encontrar rápidamente la clase y línea que rechazó
-         * la imagen.
-         *
-         * Cuando terminen las pruebas puede retirarse si no se desea.
-         */
+
         e.printStackTrace();
 
         System.err.println(

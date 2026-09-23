@@ -52,13 +52,6 @@ public class FemprobienCreditImportService {
     private static final String ACTUALIZAR_CREDITO = "ACTUALIZAR_CREDITO";
     private static final String FUERA_CORTE = "FUERA_CORTE";
 
-    /*
-     * La tabla tblAporteCredito tiene relación con tblAsociado por cod_asp.
-     * Por lo tanto, un crédito cuyo documento NO existe en tblAsociado
-     * no puede insertarse sin violar la llave foránea.
-     *
-     * En lugar de marcarlo como ERROR, lo omitimos de la carga.
-     */
     private static final String OMITIDO_NO_ASOCIADO =
             "OMITIDO_NO_ASOCIADO";
 
@@ -93,25 +86,11 @@ public class FemprobienCreditImportService {
                         transactionManager
                 );
 
-        /*
-         * Toda la carga de cartera se procesa de forma atómica.
-         * Si falla un INSERT/UPDATE, se revierte el archivo completo.
-         */
         this.transactionTemplate.setIsolationLevel(
                 TransactionDefinition.ISOLATION_SERIALIZABLE
         );
     }
 
-
-    /* =========================================================
-       VALIDAR ARCHIVO
-
-       - Detecta automáticamente el mes anterior.
-       - Ejemplo: septiembre 2026 -> agosto 2026 -> ago26.
-       - El periodo se usa solo para leer la columna del Excel.
-       - No modifica la estructura de tblAporteCredito.
-       - No modifica la base de datos durante la validación.
-       ========================================================= */
     public Map<String, Object> validarArchivo(
             MultipartFile archivo) throws Exception {
 
@@ -123,17 +102,6 @@ public class FemprobienCreditImportService {
         return construirRespuestaValidacion(analisis);
     }
 
-
-    /* =========================================================
-       PROCESAR ARCHIVO
-
-       Repite la validación dentro de una transacción y luego:
-
-       - INSERTA crédito nuevo.
-       - ACTUALIZA crédito existente utilizando la llave natural:
-         documento + valor desembolsado + fecha de desembolso.
-       - No agrega columnas nuevas a tblAporteCredito.
-       ========================================================= */
     public Map<String, Object> procesarArchivo(
             MultipartFile archivo,
             String usuario) throws Exception {
@@ -273,11 +241,6 @@ public class FemprobienCreditImportService {
                         + "."
         );
 
-        /*
-         * periodoCorte y fechaCorte SOLO se devuelven al frontend
-         * para informar qué columna del Excel fue utilizada.
-         * NO se guardan en tblAporteCredito.
-         */
         response.put(
                 "periodoCorte",
                 analisis.periodo.toString()
@@ -354,10 +317,6 @@ public class FemprobienCreditImportService {
         return response;
     }
 
-
-    /* =========================================================
-       ANÁLISIS DEL EXCEL
-       ========================================================= */
     private Analisis analizarArchivo(
             MultipartFile archivo,
             YearMonth periodo) throws Exception {
@@ -531,11 +490,6 @@ public class FemprobienCreditImportService {
                     continue;
                 }
 
-                /*
-                 * Como tblAporteCredito se conserva sin columnas nuevas,
-                 * la identificación del crédito se hace con:
-                 * documento + valor desembolsado + fecha de desembolso.
-                 */
                 String llaveCreditoExcel = llaveCredito(
                         fila.documento,
                         fila.valorDesembolsado,
@@ -556,22 +510,6 @@ public class FemprobienCreditImportService {
 
                 AsociadoDb asociado = asociados.get(fila.documento);
 
-                /*
-                 * IMPORTANTE:
-                 *
-                 * tblAporteCredito está relacionada con tblAsociado
-                 * mediante cod_asp.
-                 *
-                 * Si el documento del Excel NO existe en tblAsociado,
-                 * SQL Server no permite hacer INSERT en tblAporteCredito
-                 * porque se viola la llave foránea.
-                 *
-                 * Estos registros históricos:
-                 * - NO se consideran error del archivo.
-                 * - NO bloquean el botón Procesar.
-                 * - NO hacen INSERT ni UPDATE.
-                 * - quedan visibles como OMITIDO_NO_ASOCIADO.
-                 */
                 if (asociado == null) {
 
                     fila.asociadoEncontrado = false;
@@ -688,24 +626,7 @@ public class FemprobienCreditImportService {
         }
     }
 
-
-    /* =========================================================
-       PERIODO DE CORTE
-
-       Si no se envía un periodo manual:
-       YearMonth actual - 1 mes.
-
-       Septiembre 2026 -> Agosto 2026.
-       Enero 2027      -> Diciembre 2026.
-       ========================================================= */
     private YearMonth resolverPeriodoCorte() {
-        /*
-         * El periodo NO se guarda en SQL Server.
-         * Solo se utiliza para elegir la columna del Excel.
-         *
-         * Septiembre 2026 -> Agosto 2026
-         * Enero 2027      -> Diciembre 2026
-         */
         return YearMonth.now(ZONA_NEGOCIO).minusMonths(1);
     }
 
@@ -720,10 +641,6 @@ public class FemprobienCreditImportService {
                 + String.format("%02d", periodo.getYear() % 100);
     }
 
-
-    /* =========================================================
-       ENCONTRAR COLUMNA DEL MES EN EL EXCEL
-       ========================================================= */
     private PeriodoExcel encontrarColumnaPeriodo(
             Row header,
             YearMonth periodo,
@@ -843,20 +760,6 @@ public class FemprobienCreditImportService {
         return null;
     }
 
-
-    /* =========================================================
-       RESOLUCIÓN DEL SALDO DE CORTE
-
-       Reglas:
-
-       1. Si la celda del mes tiene número, se usa ese valor.
-       2. #N/A se toma como 0.
-       3. Si está vacía, se mira hacia atrás:
-          - último saldo numérico = 0 -> saldo actual 0.
-          - último saldo numérico > 0 -> ERROR por inconsistencia.
-       4. Si nunca ha tenido saldo y el descuento inicia después
-          del corte, se omite como FUERA_CORTE.
-       ========================================================= */
     private SaldoResultado resolverSaldoCorte(
             Row row,
             YearMonth periodo,
@@ -1040,10 +943,6 @@ public class FemprobienCreditImportService {
         }
     }
 
-
-    /* =========================================================
-       DATOS DE ASOCIADOS Y CRÉDITOS EXISTENTES
-       ========================================================= */
     private Map<String, AsociadoDb> cargarAsociados() {
 
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
@@ -1072,11 +971,6 @@ public class FemprobienCreditImportService {
 
 
     private CreditosDb cargarCreditosExistentes() {
-
-        /*
-         * Se utiliza únicamente la estructura actual de tblAporteCredito.
-         * No se requiere numero_obligacion ni periodo_corte en SQL Server.
-         */
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
                 "SELECT id, cod_asp, val_desm, fecha_desem "
                         + "FROM FEMPROBIEN.dbo.tblAporteCredito"
@@ -1128,10 +1022,6 @@ public class FemprobienCreditImportService {
                 + fecha.toString();
     }
 
-
-    /* =========================================================
-       SQL DINÁMICO tblAporteCredito
-       ========================================================= */
     private Map<String, String> obtenerColumnasTabla() {
 
         List<String> columnas = jdbcTemplate.queryForList(
@@ -1211,13 +1101,6 @@ public class FemprobienCreditImportService {
         ponerSiExiste(datos, columnas, "valor_cuota", fila.valorCuota.setScale(2, RoundingMode.HALF_UP));
         ponerSiExiste(datos, columnas, "valor_pagar", fila.saldoCorte.setScale(2, RoundingMode.HALF_UP));
 
-        /*
-         * activo y fecha_retiro solo se toman de tblAsociado cuando
-         * realmente encontramos al asociado.
-         *
-         * Para créditos históricos sin asociado actual, no sobrescribimos
-         * esos campos con NULL.
-         */
         if (fila.asociadoEncontrado) {
 
             ponerSiExiste(
@@ -1302,40 +1185,6 @@ public class FemprobienCreditImportService {
         }
 
 
-        /*
-         * IMPORTANTE - ACTUALIZACIÓN MENSUAL DE CARTERA
-         *
-         * Para un crédito que YA existe en tblAporteCredito NO debemos
-         * volver a sobrescribir:
-         *
-         * - cod_asp
-         * - nom_aso
-         * - val_desm
-         * - fecha_desem
-         * - inicio_dcto
-         * - fec_fin
-         * - plazo
-         * - valor_cuota
-         * - activo
-         * - fecha_retiro
-         *
-         * Esos datos pertenecen al crédito original.
-         *
-         * La carga mensual solamente tiene como objetivo traer el saldo
-         * correspondiente al corte anterior:
-         *
-         * Septiembre 2026 -> saldo Agosto 2026
-         * Octubre 2026    -> saldo Septiembre 2026
-         * Enero 2027      -> saldo Diciembre 2026
-         *
-         * Por eso para registros existentes SOLO actualizamos
-         * tblAporteCredito.valor_pagar.
-         *
-         * Esto además evita violar CK_tblAporteCredito_fechas al
-         * sobrescribir fechas históricas con valores del Excel.
-         */
-
-
         String columnaValorPagar =
                 columnasTabla.get(
                         "valor_pagar"
@@ -1395,10 +1244,6 @@ public class FemprobienCreditImportService {
         );
     }
 
-
-    /* =========================================================
-       RESPUESTAS
-       ========================================================= */
     private Map<String, Object> construirRespuestaValidacion(Analisis analisis) {
 
         Map<String, Object> response = new LinkedHashMap<>();
@@ -1455,10 +1300,6 @@ public class FemprobienCreditImportService {
         fila.mensaje = mensaje;
     }
 
-
-    /* =========================================================
-       LECTURA Y VALIDACIÓN DE ENCABEZADOS
-       ========================================================= */
     private int encontrarFilaEncabezados(
             Sheet sheet,
             DataFormatter formatter,
@@ -1552,24 +1393,6 @@ public class FemprobienCreditImportService {
         String valor = leerTexto(row, colValorDesembolsado, formatter, evaluator);
         String fecha = leerTexto(row, colFechaDesembolso, formatter, evaluator);
 
-        /*
-         * FILAS QUE NO REPRESENTAN UN CRÉDITO
-         *
-         * 1. Fila completamente vacía.
-         *
-         * 2. Fila TOTAL del archivo:
-         *    puede traer únicamente el total en VALOR DESEMBOLSADO
-         *    (por ejemplo COP 456.992.997), pero no trae:
-         *    - obligación
-         *    - documento
-         *    - nombre
-         *    - fecha de desembolso
-         *
-         *    Esa fila es informativa y NO debe:
-         *    - contarse como crédito,
-         *    - contarse como error,
-         *    - intentar INSERT/UPDATE.
-         */
         if (obligacion.isEmpty()
                 && documento.isEmpty()
                 && nombre.isEmpty()
@@ -1578,10 +1401,6 @@ public class FemprobienCreditImportService {
             return true;
         }
 
-        /*
-         * Filas de plantilla como una obligación futura sin
-         * información real.
-         */
         return !obligacion.isEmpty()
                 && documento.isEmpty()
                 && nombre.isEmpty()
@@ -1589,10 +1408,6 @@ public class FemprobienCreditImportService {
                 && fecha.isEmpty();
     }
 
-
-    /* =========================================================
-       LECTURA DE CELDAS
-       ========================================================= */
     private String leerTexto(
             Row row,
             int columna,
@@ -1881,10 +1696,6 @@ public class FemprobienCreditImportService {
         return null;
     }
 
-
-    /* =========================================================
-       UTILIDADES
-       ========================================================= */
     private void validarArchivoBasico(MultipartFile archivo) {
 
         if (archivo == null || archivo.isEmpty()) {
@@ -2006,10 +1817,6 @@ public class FemprobienCreditImportService {
         }
     }
 
-
-    /* =========================================================
-       CLASES INTERNAS
-       ========================================================= */
     private static class Analisis {
         YearMonth periodo;
         int columnaPeriodo;

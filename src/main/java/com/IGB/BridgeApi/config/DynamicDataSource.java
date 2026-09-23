@@ -21,7 +21,6 @@ public class DynamicDataSource {
 
     public DriverManagerDataSource getDataSource(String schema) {
         DriverManagerDataSource dataSource = new DriverManagerDataSource();
-        // Construye la URL de la base de datos con el esquema dinámico
         String dynamicUrl = url + "&currentSchema=" + schema;
         dataSource.setDriverClassName(driverClassName);
         dataSource.setUrl(dynamicUrl);
