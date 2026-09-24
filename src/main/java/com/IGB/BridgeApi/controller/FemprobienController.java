@@ -80,6 +80,79 @@ public class FemprobienController {
 
 
     /* =========================================================
+       VALIDAR ASOCIADO PARA ACTUALIZACIÓN DE DATOS
+
+       POST /femprobien/asociados/validar-actualizacion
+       ========================================================= */
+
+    @PostMapping("/asociados/validar-actualizacion")
+    public ResponseEntity<?> validarAsociadoActualizacion(
+            @RequestBody Map<String, Object> datos) {
+
+        try {
+
+            String codAsp =
+                    texto(
+                            datos.get(
+                                    "cod_asp"
+                            )
+                    );
+
+            String fechaNacimiento =
+                    texto(
+                            datos.get(
+                                    "fec_nac"
+                            )
+                    );
+
+
+            if (codAsp.isEmpty()
+                    || fechaNacimiento.isEmpty()) {
+
+                return badRequest(
+                        "El número de documento y la fecha de nacimiento son obligatorios."
+                );
+            }
+
+
+            String sql =
+                    "SELECT * " +
+                            "FROM FEMPROBIEN.dbo.tblAsociado " +
+                            "WHERE LTRIM(RTRIM(CAST(cod_asp AS VARCHAR(100)))) = ? " +
+                            "AND CONVERT(date, fec_nac) = CONVERT(date, ?)";
+
+
+            List<Map<String, Object>> resultado =
+                    sqlServerJdbcTemplate.queryForList(
+                            sql,
+                            codAsp,
+                            fechaNacimiento
+                    );
+
+
+            if (resultado.isEmpty()) {
+
+                return notFound(
+                        "No se encontró un asociado con los datos ingresados."
+                );
+            }
+
+
+            return ResponseEntity.ok(
+                    resultado.get(0)
+            );
+
+        } catch (Exception e) {
+
+            return internalError(
+                    "Error validando los datos del asociado.",
+                    e
+            );
+        }
+    }
+
+
+    /* =========================================================
        CONSULTAR ASOCIADOS SIN APORTES
 
        GET /femprobien/asociados/sin-aportes
@@ -768,7 +841,38 @@ public class FemprobienController {
                     codAsp
             );
 
-            if (existeAsociado(codAsp)) {
+            String tipoSolicitud =
+                    texto(
+                            datos.get(
+                                    "tipo_solicitud"
+                            )
+                    )
+                            .toUpperCase();
+
+
+            if (!"AFILIACION".equals(
+                    tipoSolicitud
+            )
+                    && !"ACTUALIZACION_DATOS".equals(
+                    tipoSolicitud
+            )) {
+
+                return badRequest(
+                        "Tipo de solicitud no permitido."
+                );
+            }
+
+
+            boolean asociadoExiste =
+                    existeAsociado(
+                            codAsp
+                    );
+
+
+            if ("AFILIACION".equals(
+                    tipoSolicitud
+            )
+                    && asociadoExiste) {
 
                 return conflict(
                         "El documento "
@@ -776,6 +880,43 @@ public class FemprobienController {
                                 + " ya pertenece a un asociado."
                 );
             }
+
+
+            if ("ACTUALIZACION_DATOS".equals(
+                    tipoSolicitud
+            )
+                    && !asociadoExiste) {
+
+                return notFound(
+                        "No existe un asociado registrado con documento: "
+                                + codAsp
+                );
+            }
+
+
+            List<Map<String, Object>> cambiosActualizacion =
+                    new ArrayList<>();
+
+
+            if ("ACTUALIZACION_DATOS".equals(
+                    tipoSolicitud
+            )) {
+
+                cambiosActualizacion =
+                        detectarCambiosSolicitudActualizacion(
+                                datos,
+                                codAsp
+                        );
+
+
+                if (cambiosActualizacion.isEmpty()) {
+
+                    return badRequest(
+                            "No se detectaron cambios en la información del asociado."
+                    );
+                }
+            }
+
 
             String sqlExiste =
                     "SELECT COUNT(*) " +
@@ -796,9 +937,86 @@ public class FemprobienController {
                     && cantidad > 0) {
 
                 return conflict(
-                        "Ya existe una solicitud de afiliación pendiente para este documento."
+                        "Ya existe una solicitud pendiente para este documento."
                 );
             }
+
+
+            boolean beneficiario1TieneDatos =
+                    !texto(datos.get("tipo_doc_ben1")).isEmpty()
+                            || !texto(datos.get("ben_doc1")).isEmpty()
+                            || !texto(datos.get("ben_nom1")).isEmpty()
+                            || !texto(datos.get("parentesco1")).isEmpty();
+
+            boolean beneficiario1Completo =
+                    !texto(datos.get("tipo_doc_ben1")).isEmpty()
+                            && !texto(datos.get("ben_doc1")).isEmpty()
+                            && !texto(datos.get("ben_nom1")).isEmpty()
+                            && !texto(datos.get("parentesco1")).isEmpty();
+
+
+            boolean beneficiario2TieneDatos =
+                    !texto(datos.get("tipo_doc_ben2")).isEmpty()
+                            || !texto(datos.get("ben_doc2")).isEmpty()
+                            || !texto(datos.get("ben_nom2")).isEmpty()
+                            || !texto(datos.get("parentesco2")).isEmpty();
+
+            boolean beneficiario2Completo =
+                    !texto(datos.get("tipo_doc_ben2")).isEmpty()
+                            && !texto(datos.get("ben_doc2")).isEmpty()
+                            && !texto(datos.get("ben_nom2")).isEmpty()
+                            && !texto(datos.get("parentesco2")).isEmpty();
+
+
+            boolean beneficiario3TieneDatos =
+                    !texto(datos.get("tipo_doc_ben3")).isEmpty()
+                            || !texto(datos.get("ben_doc3")).isEmpty()
+                            || !texto(datos.get("ben_nom3")).isEmpty()
+                            || !texto(datos.get("parentesco3")).isEmpty();
+
+            boolean beneficiario3Completo =
+                    !texto(datos.get("tipo_doc_ben3")).isEmpty()
+                            && !texto(datos.get("ben_doc3")).isEmpty()
+                            && !texto(datos.get("ben_nom3")).isEmpty()
+                            && !texto(datos.get("parentesco3")).isEmpty();
+
+
+            if (!beneficiario1Completo
+                    && !beneficiario2Completo
+                    && !beneficiario3Completo) {
+
+                return badRequest(
+                        "Debes diligenciar completamente por lo menos un beneficiario."
+                );
+            }
+
+
+            if (beneficiario1TieneDatos
+                    && !beneficiario1Completo) {
+
+                return badRequest(
+                        "La información del beneficiario 1 está incompleta."
+                );
+            }
+
+
+            if (beneficiario2TieneDatos
+                    && !beneficiario2Completo) {
+
+                return badRequest(
+                        "La información del beneficiario 2 está incompleta."
+                );
+            }
+
+
+            if (beneficiario3TieneDatos
+                    && !beneficiario3Completo) {
+
+                return badRequest(
+                        "La información del beneficiario 3 está incompleta."
+                );
+            }
+
 
             datos.remove("id");
             datos.remove("estado");
@@ -844,6 +1062,17 @@ public class FemprobienController {
                             Integer.class
                     );
 
+            if ("ACTUALIZACION_DATOS".equals(
+                    tipoSolicitud
+            )) {
+
+                guardarCambiosSolicitudActualizacion(
+                        idSolicitud,
+                        cambiosActualizacion
+                );
+            }
+
+
             Map<String, Object> response =
                     new HashMap<>();
 
@@ -854,7 +1083,11 @@ public class FemprobienController {
 
             response.put(
                     "message",
-                    "Solicitud de afiliación registrada correctamente."
+                    "ACTUALIZACION_DATOS".equals(
+                            tipoSolicitud
+                    )
+                            ? "Solicitud de actualización registrada correctamente."
+                            : "Solicitud de afiliación registrada correctamente."
             );
 
             response.put(
@@ -915,22 +1148,27 @@ public class FemprobienController {
 
                 resultado =
                         sqlServerJdbcTemplate.queryForList(
-                                "SELECT * " +
-                                        "FROM FEMPROBIEN.dbo.tblSolicitudAfiliacion " +
-                                        "ORDER BY fecha_solicitud DESC"
+                                "SELECT s.* " +
+                                        "FROM FEMPROBIEN.dbo.tblSolicitudAfiliacion s " +
+                                        "ORDER BY s.fecha_solicitud DESC"
                         );
 
             } else {
 
                 resultado =
                         sqlServerJdbcTemplate.queryForList(
-                                "SELECT * " +
-                                        "FROM FEMPROBIEN.dbo.tblSolicitudAfiliacion " +
-                                        "WHERE estado = ? " +
-                                        "ORDER BY fecha_solicitud DESC",
+                                "SELECT s.* " +
+                                        "FROM FEMPROBIEN.dbo.tblSolicitudAfiliacion s " +
+                                        "WHERE s.estado = ? " +
+                                        "ORDER BY s.fecha_solicitud DESC",
                                 estado.trim()
                         );
             }
+
+            anexarCambiosSolicitudes(
+                    resultado
+            );
+
 
             return ResponseEntity.ok(
                     resultado
@@ -960,9 +1198,9 @@ public class FemprobienController {
 
             List<Map<String, Object>> resultado =
                     sqlServerJdbcTemplate.queryForList(
-                            "SELECT * " +
-                                    "FROM FEMPROBIEN.dbo.tblSolicitudAfiliacion " +
-                                    "WHERE id = ?",
+                            "SELECT s.* " +
+                                    "FROM FEMPROBIEN.dbo.tblSolicitudAfiliacion s " +
+                                    "WHERE s.id = ?",
                             id
                     );
 
@@ -972,6 +1210,11 @@ public class FemprobienController {
                         "No se encontró la solicitud de afiliación."
                 );
             }
+
+            anexarCambiosSolicitudes(
+                    resultado
+            );
+
 
             return ResponseEntity.ok(
                     resultado.get(0)
@@ -1072,9 +1315,29 @@ public class FemprobienController {
                     estado
             )) {
 
-                crearAsociadoDesdeSolicitud(
-                        solicitud
-                );
+                String tipoSolicitud =
+                        texto(
+                                solicitud.get(
+                                        "tipo_solicitud"
+                                )
+                        )
+                                .toUpperCase();
+
+
+                if ("ACTUALIZACION_DATOS".equals(
+                        tipoSolicitud
+                )) {
+
+                    actualizarAsociadoDesdeSolicitud(
+                            solicitud
+                    );
+
+                } else {
+
+                    crearAsociadoDesdeSolicitud(
+                            solicitud
+                    );
+                }
             }
 
             sqlServerJdbcTemplate.update(
@@ -1859,6 +2122,445 @@ public class FemprobienController {
     }
 
 
+    private void actualizarAsociadoDesdeSolicitud(
+            Map<String, Object> solicitud) {
+
+
+        String codAsp =
+                texto(
+                        solicitud.get(
+                                "cod_asp"
+                        )
+                );
+
+
+        if (codAsp.isEmpty()) {
+
+            throw new IllegalArgumentException(
+                    "La solicitud no contiene cod_asp."
+            );
+        }
+
+
+        if (!existeAsociado(codAsp)) {
+
+            throw new IllegalArgumentException(
+                    "No existe el asociado con cod_asp: "
+                            + codAsp
+            );
+        }
+
+
+        Map<String, Object> datosSolicitados =
+                construirDatosAsociadoDesdeSolicitud(
+                        solicitud
+                );
+
+
+        Integer idSolicitud =
+                solicitud.get("id") == null
+                        ? null
+                        : Integer.valueOf(
+                        solicitud
+                                .get("id")
+                                .toString()
+                );
+
+
+        List<String> camposCambios =
+                new ArrayList<>();
+
+
+        if (idSolicitud != null) {
+
+            camposCambios =
+                    sqlServerJdbcTemplate.queryForList(
+                            "SELECT campo " +
+                                    "FROM FEMPROBIEN.dbo.tblSolicitudAfiliacionCambio " +
+                                    "WHERE id_solicitud = ? " +
+                                    "ORDER BY id",
+                            new Object[]{
+                                    idSolicitud
+                            },
+                            String.class
+                    );
+        }
+
+
+        Map<String, Object> datosActualizar =
+                new HashMap<>();
+
+
+        /*
+         * Solicitudes nuevas:
+         * actualizamos exclusivamente los campos registrados
+         * en tblSolicitudAfiliacionCambio.
+         *
+         * Solicitudes antiguas:
+         * si todavía no poseen detalle histórico, se conserva
+         * el comportamiento anterior para no bloquearlas.
+         */
+        if (!camposCambios.isEmpty()) {
+
+            for (Map.Entry<String, Object> entry
+                    : datosSolicitados.entrySet()) {
+
+                if (contieneIgnoreCase(
+                        camposCambios,
+                        entry.getKey()
+                )) {
+
+                    datosActualizar.put(
+                            entry.getKey(),
+                            entry.getValue()
+                    );
+                }
+            }
+
+        } else {
+
+            datosActualizar.putAll(
+                    datosSolicitados
+            );
+        }
+
+
+        if (datosActualizar.isEmpty()) {
+
+            throw new IllegalArgumentException(
+                    "La solicitud no contiene cambios válidos para aplicar."
+            );
+        }
+
+
+        actualizarRegistro(
+                "tblAsociado",
+                datosActualizar,
+                "cod_asp",
+                codAsp
+        );
+    }
+
+
+    private Map<String, Object> construirDatosAsociadoDesdeSolicitud(
+            Map<String, Object> solicitud) {
+
+
+        Map<String, Object> asociado =
+                new HashMap<>();
+
+
+        String nombres =
+                texto(
+                        solicitud.get(
+                                "nombres"
+                        )
+                );
+
+        String apellido1 =
+                texto(
+                        solicitud.get(
+                                "primer_apellido"
+                        )
+                );
+
+        String apellido2 =
+                texto(
+                        solicitud.get(
+                                "segundo_apellido"
+                        )
+                );
+
+
+        String nombreCompleto =
+                (
+                        nombres
+                                + " "
+                                + apellido1
+                                + " "
+                                + apellido2
+                )
+                        .replaceAll(
+                                "\\s+",
+                                " "
+                        )
+                        .trim();
+
+
+        if (!nombreCompleto.isEmpty()) {
+
+            asociado.put(
+                    "nom_aso",
+                    nombreCompleto
+            );
+        }
+
+
+        asociado.put(
+                "forma_desc",
+                solicitud.get("forma_desc")
+        );
+
+        asociado.put(
+                "cant_porcen",
+                solicitud.get("cant_porcen")
+        );
+
+        asociado.put(
+                "porcen_ahorro",
+                solicitud.get("porcen_ahorro")
+        );
+
+        asociado.put(
+                "est_civil",
+                solicitud.get("est_civil")
+        );
+
+        asociado.put(
+                "fec_nac",
+                solicitud.get("fec_nac")
+        );
+
+        asociado.put(
+                "fec_exp",
+                solicitud.get("fec_exp")
+        );
+
+        asociado.put(
+                "lugar_exp",
+                solicitud.get("lugar_exp")
+        );
+
+        asociado.put(
+                "email_per",
+                solicitud.get("email_per")
+        );
+
+        asociado.put(
+                "dir_res",
+                solicitud.get("dir_res")
+        );
+
+        asociado.put(
+                "nom_bar",
+                solicitud.get("ciudad_residencia")
+        );
+
+        asociado.put(
+                "tel",
+                solicitud.get("tel")
+        );
+
+        asociado.put(
+                "cel",
+                solicitud.get("cel")
+        );
+
+        asociado.put(
+                "nivel_estudios",
+                solicitud.get("nivel_estudios")
+        );
+
+        asociado.put(
+                "nom_emp",
+                solicitud.get("nom_emp")
+        );
+
+        asociado.put(
+                "fec_ing",
+                solicitud.get("fec_ing")
+        );
+
+        asociado.put(
+                "sal_bas",
+                solicitud.get("sal_bas")
+        );
+
+        asociado.put(
+                "prom_pres",
+                solicitud.get("prom_pres")
+        );
+
+        asociado.put(
+                "prom_boni",
+                solicitud.get("prom_boni")
+        );
+
+        asociado.put(
+                "cargo",
+                solicitud.get("cargo")
+        );
+
+        asociado.put(
+                "profesion",
+                solicitud.get("profesion")
+        );
+
+        asociado.put(
+                "tipo_cuenta",
+                solicitud.get("tipo_cuenta")
+        );
+
+        asociado.put(
+                "banco",
+                solicitud.get("banco")
+        );
+
+        asociado.put(
+                "n_cuenta",
+                solicitud.get("n_cuenta")
+        );
+
+        asociado.put(
+                "nom_conyuge",
+                solicitud.get("nom_conyuge")
+        );
+
+        asociado.put(
+                "ocu_conyuge",
+                solicitud.get("ocu_conyuge")
+        );
+
+        asociado.put(
+                "tel_conyuge",
+                solicitud.get("tel_conyuge")
+        );
+
+        asociado.put(
+                "tip_doc",
+                solicitud.get("tipo_doc_conyuge")
+        );
+
+        asociado.put(
+                "doc_conyuge",
+                solicitud.get("doc_conyuge")
+        );
+
+        asociado.put(
+                "bien_raices",
+                solicitud.get("bien_raices")
+        );
+
+        asociado.put(
+                "bienes_dic",
+                solicitud.get("bienes_dir")
+        );
+
+        asociado.put(
+                "vehiculo",
+                solicitud.get("vehiculo")
+        );
+
+        asociado.put(
+                "marca_veh",
+                solicitud.get("marca_veh")
+        );
+
+        asociado.put(
+                "modelo_veh",
+                solicitud.get("modelo_veh")
+        );
+
+        asociado.put(
+                "ben_nom1",
+                solicitud.get("ben_nom1")
+        );
+
+        asociado.put(
+                "ben_doc1",
+                solicitud.get("ben_doc1")
+        );
+
+        asociado.put(
+                "parentesco1",
+                solicitud.get("parentesco1")
+        );
+
+        asociado.put(
+                "ben_nom2",
+                solicitud.get("ben_nom2")
+        );
+
+        asociado.put(
+                "ben_doc2",
+                solicitud.get("ben_doc2")
+        );
+
+        asociado.put(
+                "parentesco2",
+                solicitud.get("parentesco2")
+        );
+
+        asociado.put(
+                "ben_nom3",
+                solicitud.get("ben_nom3")
+        );
+
+        asociado.put(
+                "ben_doc3",
+                solicitud.get("ben_doc3")
+        );
+
+        asociado.put(
+                "parentesco3",
+                solicitud.get("parentesco3")
+        );
+
+
+        agregarSiExiste(
+                "tblAsociado",
+                asociado,
+                "tipo_documento",
+                solicitud.get("tipo_documento")
+        );
+
+        agregarSiExiste(
+                "tblAsociado",
+                asociado,
+                "otro_tel",
+                solicitud.get("otro_tel")
+        );
+
+        agregarSiExiste(
+                "tblAsociado",
+                asociado,
+                "maneja_recursos_publicos",
+                solicitud.get("maneja_recursos_publicos")
+        );
+
+        agregarSiExiste(
+                "tblAsociado",
+                asociado,
+                "reconocimiento_publico",
+                solicitud.get("reconocimiento_publico")
+        );
+
+        agregarSiExiste(
+                "tblAsociado",
+                asociado,
+                "tipo_doc_ben1",
+                solicitud.get("tipo_doc_ben1")
+        );
+
+        agregarSiExiste(
+                "tblAsociado",
+                asociado,
+                "tipo_doc_ben2",
+                solicitud.get("tipo_doc_ben2")
+        );
+
+        agregarSiExiste(
+                "tblAsociado",
+                asociado,
+                "tipo_doc_ben3",
+                solicitud.get("tipo_doc_ben3")
+        );
+
+
+        return asociado;
+    }
+
+
     private void crearAsociadoDesdeSolicitud(
             Map<String, Object> solicitud) {
 
@@ -2315,6 +3017,475 @@ public class FemprobienController {
     }
 
 
+    private List<Map<String, Object>> detectarCambiosSolicitudActualizacion(
+            Map<String, Object> solicitud,
+            String codAsp) {
+
+
+        List<Map<String, Object>> asociados =
+                sqlServerJdbcTemplate.queryForList(
+                        "SELECT TOP 1 * " +
+                                "FROM FEMPROBIEN.dbo.tblAsociado " +
+                                "WHERE LTRIM(RTRIM(CAST(cod_asp AS VARCHAR(100)))) = ?",
+                        codAsp
+                );
+
+
+        if (asociados.isEmpty()) {
+
+            throw new IllegalArgumentException(
+                    "No existe el asociado con cod_asp: "
+                            + codAsp
+            );
+        }
+
+
+        Map<String, Object> asociadoActual =
+                asociados.get(0);
+
+
+        Map<String, Object> datosSolicitados =
+                construirDatosAsociadoDesdeSolicitud(
+                        solicitud
+                );
+
+
+        List<Map<String, Object>> cambios =
+                new ArrayList<>();
+
+
+        for (Map.Entry<String, Object> entry
+                : datosSolicitados.entrySet()) {
+
+
+            String campo =
+                    entry.getKey();
+
+            Object valorAnterior =
+                    obtenerValorMapaIgnoreCase(
+                            asociadoActual,
+                            campo
+                    );
+
+            Object valorNuevo =
+                    entry.getValue();
+
+
+            if (!valoresEquivalentes(
+                    valorAnterior,
+                    valorNuevo
+            )) {
+
+                Map<String, Object> cambio =
+                        new HashMap<>();
+
+                cambio.put(
+                        "campo",
+                        campo
+                );
+
+                cambio.put(
+                        "valor_anterior",
+                        valorAuditoria(
+                                valorAnterior
+                        )
+                );
+
+                cambio.put(
+                        "valor_nuevo",
+                        valorAuditoria(
+                                valorNuevo
+                        )
+                );
+
+
+                cambios.add(
+                        cambio
+                );
+            }
+        }
+
+
+        return cambios;
+    }
+
+
+    private void guardarCambiosSolicitudActualizacion(
+            Integer idSolicitud,
+            List<Map<String, Object>> cambios) {
+
+
+        if (idSolicitud == null
+                || cambios == null
+                || cambios.isEmpty()) {
+
+            return;
+        }
+
+
+        for (Map<String, Object> cambio
+                : cambios) {
+
+            sqlServerJdbcTemplate.update(
+                    "INSERT INTO FEMPROBIEN.dbo.tblSolicitudAfiliacionCambio " +
+                            "(id_solicitud, campo, valor_anterior, valor_nuevo, fecha_registro) " +
+                            "VALUES (?, ?, ?, ?, GETDATE())",
+                    idSolicitud,
+                    cambio.get("campo"),
+                    cambio.get("valor_anterior"),
+                    cambio.get("valor_nuevo")
+            );
+        }
+    }
+
+
+    private void anexarCambiosSolicitudes(
+            List<Map<String, Object>> solicitudes) {
+
+
+        if (solicitudes == null
+                || solicitudes.isEmpty()) {
+
+            return;
+        }
+
+
+        for (Map<String, Object> solicitud
+                : solicitudes) {
+
+
+            String tipoSolicitud =
+                    texto(
+                            solicitud.get(
+                                    "tipo_solicitud"
+                            )
+                    )
+                            .toUpperCase();
+
+
+            if (!"ACTUALIZACION_DATOS".equals(
+                    tipoSolicitud
+            )) {
+
+                solicitud.put(
+                        "cambios",
+                        new ArrayList<Map<String, Object>>()
+                );
+
+                continue;
+            }
+
+
+            Object idSolicitud =
+                    solicitud.get("id");
+
+
+            if (idSolicitud == null) {
+
+                solicitud.put(
+                        "cambios",
+                        new ArrayList<Map<String, Object>>()
+                );
+
+                continue;
+            }
+
+
+            List<Map<String, Object>> cambios =
+                    sqlServerJdbcTemplate.queryForList(
+                            "SELECT id, id_solicitud, campo, " +
+                                    "valor_anterior, valor_nuevo, fecha_registro " +
+                                    "FROM FEMPROBIEN.dbo.tblSolicitudAfiliacionCambio " +
+                                    "WHERE id_solicitud = ? " +
+                                    "ORDER BY id",
+                            idSolicitud
+                    );
+
+
+            solicitud.put(
+                    "cambios",
+                    cambios
+            );
+        }
+    }
+
+
+    private Object obtenerValorMapaIgnoreCase(
+            Map<String, Object> datos,
+            String campo) {
+
+
+        if (datos == null
+                || campo == null) {
+
+            return null;
+        }
+
+
+        for (Map.Entry<String, Object> entry
+                : datos.entrySet()) {
+
+            if (entry.getKey().equalsIgnoreCase(
+                    campo
+            )) {
+
+                return entry.getValue();
+            }
+        }
+
+
+        return null;
+    }
+
+
+    private boolean contieneIgnoreCase(
+            List<String> valores,
+            String buscado) {
+
+
+        if (valores == null
+                || buscado == null) {
+
+            return false;
+        }
+
+
+        for (String valor : valores) {
+
+            if (valor != null
+                    && valor.equalsIgnoreCase(
+                    buscado
+            )) {
+
+                return true;
+            }
+        }
+
+
+        return false;
+    }
+
+
+    private boolean valoresEquivalentes(
+            Object valorAnterior,
+            Object valorNuevo) {
+
+
+        String anterior =
+                normalizarValorComparacion(
+                        valorAnterior
+                );
+
+        String nuevo =
+                normalizarValorComparacion(
+                        valorNuevo
+                );
+
+
+        return anterior.equals(
+                nuevo
+        );
+    }
+
+
+    private String normalizarValorComparacion(
+            Object valor) {
+
+
+        if (valor == null) {
+            return "";
+        }
+
+
+        if (valor instanceof Boolean) {
+
+            return ((Boolean) valor)
+                    ? "1"
+                    : "0";
+        }
+
+
+        if (valor instanceof Number) {
+
+            try {
+
+                return new java.math.BigDecimal(
+                        valor.toString()
+                )
+                        .stripTrailingZeros()
+                        .toPlainString();
+
+            } catch (Exception ignored) {
+
+                return valor
+                        .toString()
+                        .trim();
+            }
+        }
+
+
+        if (valor instanceof java.util.Date) {
+
+            return new java.text.SimpleDateFormat(
+                    "yyyy-MM-dd"
+            )
+                    .format(
+                            (java.util.Date) valor
+                    );
+        }
+
+
+        String textoValor =
+                valor
+                        .toString()
+                        .trim();
+
+
+        if (textoValor.matches(
+                "^\\d{4}-\\d{2}-\\d{2}.*$"
+        )) {
+
+            return textoValor.substring(
+                    0,
+                    10
+            );
+        }
+
+
+        if ("TRUE".equalsIgnoreCase(
+                textoValor
+        )
+                || "SI".equalsIgnoreCase(
+                textoValor
+        )
+                || "SÍ".equalsIgnoreCase(
+                textoValor
+        )
+                || "Y".equalsIgnoreCase(
+                textoValor
+        )) {
+
+            return "1";
+        }
+
+
+        if ("FALSE".equalsIgnoreCase(
+                textoValor
+        )
+                || "NO".equalsIgnoreCase(
+                textoValor
+        )
+                || "N".equalsIgnoreCase(
+                textoValor
+        )) {
+
+            return "0";
+        }
+
+
+        return textoValor;
+    }
+
+
+    private String valorAuditoria(
+            Object valor) {
+
+
+        if (valor == null) {
+            return "";
+        }
+
+
+        if (valor instanceof Boolean) {
+
+            return ((Boolean) valor)
+                    ? "SI"
+                    : "NO";
+        }
+
+
+        if (valor instanceof Number) {
+
+            try {
+
+                return new java.math.BigDecimal(
+                        valor.toString()
+                )
+                        .stripTrailingZeros()
+                        .toPlainString();
+
+            } catch (Exception ignored) {
+
+                return valor
+                        .toString()
+                        .trim();
+            }
+        }
+
+
+        if (valor instanceof java.util.Date) {
+
+            return new java.text.SimpleDateFormat(
+                    "yyyy-MM-dd"
+            )
+                    .format(
+                            (java.util.Date) valor
+                    );
+        }
+
+
+        String textoValor =
+                valor
+                        .toString()
+                        .trim();
+
+
+        if ("TRUE".equalsIgnoreCase(
+                textoValor
+        )
+                || "SI".equalsIgnoreCase(
+                textoValor
+        )
+                || "SÍ".equalsIgnoreCase(
+                textoValor
+        )
+                || "Y".equalsIgnoreCase(
+                textoValor
+        )) {
+
+            return "SI";
+        }
+
+
+        if ("FALSE".equalsIgnoreCase(
+                textoValor
+        )
+                || "NO".equalsIgnoreCase(
+                textoValor
+        )
+                || "N".equalsIgnoreCase(
+                textoValor
+        )) {
+
+            return "NO";
+        }
+
+
+        if (textoValor.matches(
+                "^\\d{4}-\\d{2}-\\d{2}.*$"
+        )) {
+
+            return textoValor.substring(
+                    0,
+                    10
+            );
+        }
+
+
+        return textoValor;
+    }
+
+
     private String texto(
             Object valor) {
 
@@ -2325,6 +3496,159 @@ public class FemprobienController {
         return valor
                 .toString()
                 .trim();
+    }
+
+
+    private void actualizarRegistro(
+            String tabla,
+            Map<String, Object> datos,
+            String columnaCondicion,
+            Object valorCondicion) {
+
+
+        if (!tabla.equals("tblAsociado")) {
+
+            throw new IllegalArgumentException(
+                    "Tabla no permitida para actualización: "
+                            + tabla
+            );
+        }
+
+
+        String sqlColumnas =
+                "SELECT c.name " +
+                        "FROM FEMPROBIEN.sys.columns c " +
+
+                        "INNER JOIN FEMPROBIEN.sys.tables t " +
+                        "ON t.object_id = c.object_id " +
+
+                        "INNER JOIN FEMPROBIEN.sys.schemas s " +
+                        "ON s.schema_id = t.schema_id " +
+
+                        "WHERE t.name = ? " +
+                        "AND s.name = 'dbo' " +
+                        "AND c.is_identity = 0 " +
+                        "AND c.is_computed = 0";
+
+
+        List<String> columnasPermitidas =
+                sqlServerJdbcTemplate.queryForList(
+                        sqlColumnas,
+                        new Object[]{
+                                tabla
+                        },
+                        String.class
+                );
+
+
+        String columnaCondicionReal =
+                buscarColumna(
+                        columnasPermitidas,
+                        columnaCondicion
+                );
+
+
+        if (columnaCondicionReal == null) {
+
+            throw new IllegalArgumentException(
+                    "La columna de condición '"
+                            + columnaCondicion
+                            + "' no existe en "
+                            + tabla
+            );
+        }
+
+
+        StringBuilder asignaciones =
+                new StringBuilder();
+
+        List<Object> parametros =
+                new ArrayList<>();
+
+
+        for (Map.Entry<String, Object> entry
+                : datos.entrySet()) {
+
+
+            String columnaSolicitada =
+                    entry.getKey();
+
+
+            String columnaReal =
+                    buscarColumna(
+                            columnasPermitidas,
+                            columnaSolicitada
+                    );
+
+
+            if (columnaReal == null) {
+
+                throw new IllegalArgumentException(
+                        "El campo '"
+                                + columnaSolicitada
+                                + "' no existe en "
+                                + tabla
+                );
+            }
+
+
+            if (asignaciones.length() > 0) {
+
+                asignaciones.append(
+                        ", "
+                );
+            }
+
+
+            asignaciones
+                    .append("[")
+                    .append(columnaReal)
+                    .append("] = ?");
+
+
+            parametros.add(
+                    entry.getValue()
+            );
+        }
+
+
+        if (parametros.isEmpty()) {
+
+            throw new IllegalArgumentException(
+                    "No se recibieron campos para actualizar."
+            );
+        }
+
+
+        parametros.add(
+                valorCondicion
+        );
+
+
+        String sql =
+                "UPDATE FEMPROBIEN.dbo."
+                        + tabla
+                        + " SET "
+                        + asignaciones
+                        + " WHERE ["
+                        + columnaCondicionReal
+                        + "] = ?";
+
+
+        int actualizados =
+                sqlServerJdbcTemplate.update(
+                        sql,
+                        parametros.toArray()
+                );
+
+
+        if (actualizados <= 0) {
+
+            throw new IllegalArgumentException(
+                    "No se encontró el registro a actualizar en "
+                            + tabla
+            );
+        }
     }
 
 
