@@ -210,6 +210,12 @@ public class FemprobienCreditController {
             )
             MultipartFile huellaDeudor1,
 
+            /*
+             * Compatibilidad histórica:
+             * estos parámetros permanecen opcionales para solicitudes
+             * antiguas creadas cuando se manejaban dos deudores.
+             * Las solicitudes nuevas utilizan únicamente deudor1.
+             */
             @RequestParam(
                     value = "firmaDeudor2",
                     required = false

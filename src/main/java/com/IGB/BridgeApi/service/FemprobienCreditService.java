@@ -17,6 +17,13 @@ import java.util.Map;
 @Service
 public class FemprobienCreditService {
 
+    /*
+     * Regla FEMPROBIEN:
+     * Desde $10.000.000 es obligatorio UN deudor solidario.
+     */
+    private static final BigDecimal MONTO_MINIMO_DEUDORES_SOLIDARIOS =
+            new BigDecimal("10000000");
+
     private final JdbcTemplate jdbcTemplate;
     private final FemprobienCreditFileService creditFileService;
     private final FemprobienCreditEmailService creditEmailService;
@@ -44,6 +51,13 @@ public class FemprobienCreditService {
 
         validarSolicitudAbierta(asociado.get("id_aso"));
         validarDatosBasicos(datos);
+
+        /*
+         * Desde $10.000.000 el deudor solidario
+         * debe estar registrado en la solicitud.
+         */
+        validarDeudoresPorMonto(datos);
+
         validarFormaDescuento(datos);
         validarAutorizaciones(datos);
 
@@ -207,11 +221,18 @@ public class FemprobienCreditService {
                 decision.getUsuario()
         );
 
+        /*
+         * ============================================================
+         * NOTIFICACIÓN POR MICROSOFT 365 / MICROSOFT GRAPH
+         * ============================================================
+         *
+         * El cambio de estado y su historial ya quedaron guardados antes
+         * de intentar enviar el correo. Si Microsoft Graph falla, el cambio
+         * de estado NO se revierte. FemprobienCreditEmailService registra
+         * además el resultado del envío en tblNotificacionCredito.
+         */
         Map<String, Object> solicitudActualizada =
-                obtenerSolicitudInterna(
-                        numeroSolicitud
-                );
-
+                obtenerSolicitudInterna(numeroSolicitud);
 
         Map<String, Object> resultadoCorreo =
                 creditEmailService.notificarCambioEstado(
@@ -221,80 +242,40 @@ public class FemprobienCreditService {
                         decision.getUsuario()
                 );
 
-
         boolean correoEnviado =
                 resultadoCorreo != null &&
                         Boolean.TRUE.equals(
-                                resultadoCorreo.get(
-                                        "enviado"
-                                )
+                                resultadoCorreo.get("enviado")
                         );
-
 
         String mensajeCorreo =
                 resultadoCorreo == null
                         ? "No se obtuvo respuesta del servicio de correo."
                         : (
-                        resultadoCorreo.get(
-                                "message"
-                        ) == null
+                        resultadoCorreo.get("message") == null
                                 ? null
-                                : resultadoCorreo.get(
-                                        "message"
-                                )
-                                .toString()
+                                : resultadoCorreo.get("message").toString()
                 );
 
-
-        Map<String, Object> response =
-                new HashMap<>();
-
-        response.put(
-                "status",
-                200
-        );
-
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
         response.put(
                 "message",
                 correoEnviado
                         ? "Estado del crédito actualizado y correo enviado correctamente."
                         : "Estado del crédito actualizado correctamente, pero no fue posible enviar el correo."
         );
-
-        response.put(
-                "numero_solicitud",
-                numeroSolicitud
-        );
-
-        response.put(
-                "estado_anterior",
-                estadoActual.name()
-        );
-
-        response.put(
-                "estado",
-                nuevoEstado.name()
-        );
-
-        response.put(
-                "correo_enviado",
-                correoEnviado
-        );
-
+        response.put("numero_solicitud", numeroSolicitud);
+        response.put("estado_anterior", estadoActual.name());
+        response.put("estado", nuevoEstado.name());
+        response.put("correo_enviado", correoEnviado);
         response.put(
                 "correo_destinatario",
                 resultadoCorreo == null
                         ? null
-                        : resultadoCorreo.get(
-                        "destinatario"
-                )
+                        : resultadoCorreo.get("destinatario")
         );
-
-        response.put(
-                "correo_mensaje",
-                mensajeCorreo
-        );
-
+        response.put("correo_mensaje", mensajeCorreo);
 
         return response;
     }
@@ -327,6 +308,17 @@ public class FemprobienCreditService {
         validarEstadoCargaArchivos(solicitud);
         validarColumnasBiometria();
 
+        /*
+         * Protección adicional del backend.
+         * Para solicitudes >= $10.000.000 el deudor solidario
+         * debe adjuntar firma Y huella.
+         */
+        validarArchivosDeudoresPorMonto(
+                solicitud,
+                firmaDeudor1,
+                huellaDeudor1
+        );
+
         if (!tieneArchivo(firmaSolicitante)
                 && !tieneArchivo(huellaSolicitante)
                 && !tieneArchivo(firmaDeudor1)
@@ -344,7 +336,7 @@ public class FemprobienCreditService {
                 "numero_documento_deudor1",
                 firmaDeudor1,
                 huellaDeudor1,
-                "deudor solidario 1"
+                "deudor solidario"
         );
 
         validarDeudorSiArchivo(
@@ -721,6 +713,327 @@ public class FemprobienCreditService {
             );
         }
     }
+
+    /* =========================================================
+       REGLA DE DEUDORES SOLIDARIOS POR MONTO
+       ========================================================= */
+
+    private void validarDeudoresPorMonto(
+            Map<String, Object> datos) {
+
+        BigDecimal monto =
+                toBigDecimal(
+                        datos.get(
+                                "monto_solicitado"
+                        )
+                );
+
+
+        /*
+         * La validación básica del monto se realiza
+         * en validarDatosBasicos().
+         */
+        if (
+                monto == null
+        ) {
+            return;
+        }
+
+
+        /*
+         * Menos de $10.000.000:
+         * los deudores siguen siendo opcionales.
+         */
+        if (
+                monto.compareTo(
+                        MONTO_MINIMO_DEUDORES_SOLIDARIOS
+                ) < 0
+        ) {
+            return;
+        }
+
+
+        /*
+         * $10.000.000 o más:
+         * un deudor solidario es obligatorio.
+         */
+        validarDeudorSolidarioObligatorio(
+                datos,
+                1
+        );
+    }
+
+
+    private void validarDeudorSolidarioObligatorio(
+            Map<String, Object> datos,
+            int numeroDeudor) {
+
+        String sufijo =
+                String.valueOf(
+                        numeroDeudor
+                );
+
+
+        String nombre =
+                "nombre_completo_deudor" +
+                        sufijo;
+
+        String tipoDocumento =
+                "tipo_documento_deudor" +
+                        sufijo;
+
+        String documento =
+                "numero_documento_deudor" +
+                        sufijo;
+
+        String empresa =
+                "empresa_deudor" +
+                        sufijo;
+
+        String profesion =
+                "profesion_deudor" +
+                        sufijo;
+
+        String cargo =
+                "cargo_deudor" +
+                        sufijo;
+
+        String telefono =
+                "telefono_deudor" +
+                        sufijo;
+
+        String salario =
+                "salario_deudor" +
+                        sufijo;
+
+        String fechaNacimiento =
+                "fecha_nacimiento_deudor" +
+                        sufijo;
+
+        String direccionResidencia =
+                "direccion_residencia_deudor" +
+                        sufijo;
+
+
+        String etiquetaDeudor =
+                numeroDeudor == 1
+                        ? "deudor solidario"
+                        : "deudor solidario " + numeroDeudor;
+
+
+        if (
+                estaVacio(
+                        datos.get(
+                                nombre
+                        )
+                )
+        ) {
+
+            throw new IllegalArgumentException(
+                    "Para créditos iguales o superiores a $10.000.000 " +
+                            "es obligatorio registrar el nombre del " +
+                            etiquetaDeudor +
+                            "."
+            );
+        }
+
+
+        if (
+                estaVacio(
+                        datos.get(
+                                tipoDocumento
+                        )
+                )
+        ) {
+
+            throw new IllegalArgumentException(
+                    "Debe registrar el tipo de documento del " +
+                            etiquetaDeudor +
+                            "."
+            );
+        }
+
+
+        if (
+                estaVacio(
+                        datos.get(
+                                documento
+                        )
+                )
+        ) {
+
+            throw new IllegalArgumentException(
+                    "Debe registrar el número de documento del " +
+                            etiquetaDeudor +
+                            "."
+            );
+        }
+
+
+        if (
+                estaVacio(
+                        datos.get(
+                                empresa
+                        )
+                )
+        ) {
+
+            throw new IllegalArgumentException(
+                    "Debe registrar la empresa del " +
+                            etiquetaDeudor +
+                            "."
+            );
+        }
+
+
+        if (
+                estaVacio(
+                        datos.get(
+                                profesion
+                        )
+                )
+        ) {
+
+            throw new IllegalArgumentException(
+                    "Debe registrar la profesión del " +
+                            etiquetaDeudor +
+                            "."
+            );
+        }
+
+
+        if (
+                estaVacio(
+                        datos.get(
+                                cargo
+                        )
+                )
+        ) {
+
+            throw new IllegalArgumentException(
+                    "Debe registrar el cargo del " +
+                            etiquetaDeudor +
+                            "."
+            );
+        }
+
+
+        if (
+                estaVacio(
+                        datos.get(
+                                telefono
+                        )
+                )
+        ) {
+
+            throw new IllegalArgumentException(
+                    "Debe registrar el teléfono del " +
+                            etiquetaDeudor +
+                            "."
+            );
+        }
+
+
+        BigDecimal salarioValor =
+                toBigDecimal(
+                        datos.get(
+                                salario
+                        )
+                );
+
+
+        if (
+                salarioValor == null ||
+                        salarioValor.compareTo(
+                                BigDecimal.ZERO
+                        ) <= 0
+        ) {
+
+            throw new IllegalArgumentException(
+                    "Debe registrar un salario válido para el " +
+                            etiquetaDeudor +
+                            "."
+            );
+        }
+
+
+        if (
+                estaVacio(
+                        datos.get(
+                                fechaNacimiento
+                        )
+                )
+        ) {
+
+            throw new IllegalArgumentException(
+                    "Debe registrar la fecha de nacimiento del " +
+                            etiquetaDeudor +
+                            "."
+            );
+        }
+
+
+        if (
+                estaVacio(
+                        datos.get(
+                                direccionResidencia
+                        )
+                )
+        ) {
+
+            throw new IllegalArgumentException(
+                    "Debe registrar la dirección de residencia del " +
+                            etiquetaDeudor +
+                            "."
+            );
+        }
+    }
+
+
+    /*
+     * Como la creación de la solicitud y la carga de archivos
+     * son endpoints separados, aquí protegemos también el
+     * segundo paso.
+     */
+    private void validarArchivosDeudoresPorMonto(
+            Map<String, Object> solicitud,
+            MultipartFile firmaDeudor1,
+            MultipartFile huellaDeudor1) {
+
+        BigDecimal monto =
+                toBigDecimal(
+                        solicitud.get(
+                                "monto_solicitado"
+                        )
+                );
+
+
+        if (
+                monto == null ||
+                        monto.compareTo(
+                                MONTO_MINIMO_DEUDORES_SOLIDARIOS
+                        ) < 0
+        ) {
+            return;
+        }
+
+
+        if (
+                !tieneArchivo(
+                        firmaDeudor1
+                ) ||
+                        !tieneArchivo(
+                                huellaDeudor1
+                        )
+        ) {
+
+            throw new IllegalArgumentException(
+                    "Para créditos iguales o superiores a $10.000.000 " +
+                            "debe adjuntar firma y huella del deudor solidario."
+            );
+        }
+    }
+
 
     private void validarFormaDescuento(Map<String, Object> datos) {
         boolean q1 = toBoolean(datos.get("descuento_primera_quincena"));
