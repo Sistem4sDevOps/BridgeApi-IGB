@@ -192,6 +192,301 @@ public class FemprobienImportService {
     }
 
 
+
+
+    public Map<String, Object> sincronizarDatosFaltantesAsociados(
+            String usuario) {
+
+        List<String> basesNovaweb =
+                obtenerBasesNovaweb();
+
+
+        String sql =
+                "SELECT "
+                        + "LTRIM(RTRIM(cod_asp)) AS cod_asp "
+                        + "FROM FEMPROBIEN.dbo.tblAsociado "
+                        + "WHERE cod_asp IS NOT NULL "
+                        + "AND LTRIM(RTRIM(cod_asp)) <> '' "
+                        + "AND ("
+                        + "fec_nac IS NULL "
+                        + "OR fec_ing IS NULL "
+                        + "OR dir_res IS NULL "
+                        + "OR LTRIM(RTRIM(dir_res)) = '' "
+                        + "OR nom_bar IS NULL "
+                        + "OR LTRIM(RTRIM(nom_bar)) = '' "
+                        + "OR tel IS NULL "
+                        + "OR LTRIM(RTRIM(tel)) = '' "
+                        + "OR cel IS NULL "
+                        + "OR LTRIM(RTRIM(cel)) = '' "
+                        + "OR email_per IS NULL "
+                        + "OR LTRIM(RTRIM(email_per)) = '' "
+                        + "OR sal_bas IS NULL "
+                        + "OR cargo IS NULL "
+                        + "OR LTRIM(RTRIM(cargo)) = '' "
+                        + "OR banco IS NULL "
+                        + "OR LTRIM(RTRIM(banco)) = '' "
+                        + "OR n_cuenta IS NULL "
+                        + "OR LTRIM(RTRIM(n_cuenta)) = ''"
+                        + ")";
+
+
+        List<String> documentos =
+                sqlServerJdbcTemplate.queryForList(
+                        sql,
+                        String.class
+                );
+
+
+        int encontrados =
+                0;
+
+        int actualizados =
+                0;
+
+        int noEncontrados =
+                0;
+
+        int sinDatosParaCompletar =
+                0;
+
+        int errores =
+                0;
+
+
+        List<Map<String, Object>> detalle =
+                new ArrayList<>();
+
+
+        for (
+                String documento
+                : documentos
+        ) {
+
+            Map<String, Object> item =
+                    new LinkedHashMap<>();
+
+
+            item.put(
+                    "documento",
+                    documento
+            );
+
+
+            try {
+
+                AsociadoDb asociado =
+                        obtenerAsociado(
+                                documento
+                        );
+
+
+                DatosEmpleadoNovaweb datos =
+                        buscarDatosEmpleadoNovaweb(
+                                documento,
+                                basesNovaweb
+                        );
+
+
+                if (datos == null) {
+
+                    noEncontrados++;
+
+
+                    item.put(
+                            "resultado",
+                            "NO_ENCONTRADO"
+                    );
+
+                    item.put(
+                            "mensaje",
+                            "No se encontró el documento en las bases NOVAWEB."
+                    );
+
+
+                    detalle.add(
+                            item
+                    );
+
+                    continue;
+                }
+
+
+                encontrados++;
+
+
+                if (
+                        asociado == null
+                                || !hayDatoNovawebParaCompletar(
+                                asociado,
+                                datos
+                        )
+                ) {
+
+                    sinDatosParaCompletar++;
+
+
+                    item.put(
+                            "resultado",
+                            "SIN_CAMBIOS"
+                    );
+
+                    item.put(
+                            "baseNovaweb",
+                            datos.baseDatos
+                    );
+
+                    item.put(
+                            "mensaje",
+                            "NOVAWEB no contiene información adicional para completar los campos faltantes."
+                    );
+
+
+                    detalle.add(
+                            item
+                    );
+
+                    continue;
+                }
+
+
+                int filas =
+                        completarDatosFaltantesAsociado(
+                                documento,
+                                datos
+                        );
+
+
+                if (filas > 0) {
+
+                    actualizados++;
+                }
+
+
+                item.put(
+                        "resultado",
+                        "OK"
+                );
+
+                item.put(
+                        "baseNovaweb",
+                        datos.baseDatos
+                );
+
+                item.put(
+                        "fechaNacimiento",
+                        datos.fechaNacimiento
+                );
+
+                item.put(
+                        "celular",
+                        datos.celular
+                );
+
+                item.put(
+                        "correo",
+                        datos.correo
+                );
+
+                item.put(
+                        "cargo",
+                        datos.cargo
+                );
+
+                item.put(
+                        "banco",
+                        datos.banco
+                );
+
+                item.put(
+                        "actualizado",
+                        filas > 0
+                );
+
+                item.put(
+                        "mensaje",
+                        filas > 0
+                                ? "Se completaron los datos faltantes."
+                                : "No fue necesario realizar cambios."
+                );
+
+
+            } catch (Exception e) {
+
+                errores++;
+
+
+                item.put(
+                        "resultado",
+                        "ERROR"
+                );
+
+                item.put(
+                        "mensaje",
+                        e.getMessage()
+                );
+            }
+
+
+            detalle.add(
+                    item
+            );
+        }
+
+
+        Map<String, Object> response =
+                new LinkedHashMap<>();
+
+
+        response.put(
+                "status",
+                200
+        );
+
+        response.put(
+                "usuario",
+                usuario
+        );
+
+        response.put(
+                "totalRevisados",
+                documentos.size()
+        );
+
+        response.put(
+                "encontradosNovaweb",
+                encontrados
+        );
+
+        response.put(
+                "actualizados",
+                actualizados
+        );
+
+        response.put(
+                "noEncontrados",
+                noEncontrados
+        );
+
+        response.put(
+                "sinDatosParaCompletar",
+                sinDatosParaCompletar
+        );
+
+        response.put(
+                "errores",
+                errores
+        );
+
+        response.put(
+                "detalle",
+                detalle
+        );
+
+
+        return response;
+    }
+
+
     private Map<String, Object> procesarDentroTransaccion(
             MultipartFile archivo,
             AnalisisArchivo analisis,
@@ -200,6 +495,18 @@ public class FemprobienImportService {
         int asociadosCreados = 0;
         int aportesCreados = 0;
         int aportesActualizados = 0;
+
+        /*
+         * Se conserva este contador porque ya hacía parte
+         * de la respuesta del importador.
+         */
+        int fechasNacimientoActualizadas = 0;
+
+        /*
+         * Nuevo contador general para saber cuántos asociados
+         * existentes fueron enriquecidos con datos de NOVAWEB.
+         */
+        int asociadosConDatosCompletados = 0;
 
 
         List<Map<String, Object>> detalleProceso =
@@ -227,9 +534,22 @@ public class FemprobienImportService {
                 boolean asociadoCreado =
                         false;
 
+                boolean fechaNacimientoActualizada =
+                        false;
+
+                boolean datosAsociadoCompletados =
+                        false;
+
 
                 if (asociado == null) {
 
+                    /*
+                     * ASOCIADO NUEVO.
+                     *
+                     * insertarAsociadoNuevo conserva lo que ya se hacía,
+                     * pero ahora también guarda los datos disponibles
+                     * encontrados en NOVAWEB.
+                     */
                     asociado =
                             insertarAsociadoNuevo(
                                     fila
@@ -237,9 +557,60 @@ public class FemprobienImportService {
 
                     asociadosCreados++;
                     asociadoCreado = true;
+
+                } else if (
+                        fila.datosNovaweb != null
+                                && tieneDatosFaltantes(
+                                asociado
+                        )
+                                && hayDatoNovawebParaCompletar(
+                                asociado,
+                                fila.datosNovaweb
+                        )
+                ) {
+
+                    /*
+                     * Guardamos esta condición antes del UPDATE
+                     * para conservar el contador específico de fec_nac.
+                     */
+                    boolean teniaFechaNacimientoVacia =
+                            asociado.fechaNacimiento == null
+                                    && fila.datosNovaweb.fechaNacimiento != null;
+
+
+                    int actualizados =
+                            completarDatosFaltantesAsociado(
+                                    fila.documento,
+                                    fila.datosNovaweb
+                            );
+
+
+                    if (actualizados > 0) {
+
+                        datosAsociadoCompletados =
+                                true;
+
+                        asociadosConDatosCompletados++;
+
+
+                        if (teniaFechaNacimientoVacia) {
+
+                            fechaNacimientoActualizada =
+                                    true;
+
+                            fechasNacimientoActualizadas++;
+
+                            asociado.fechaNacimiento =
+                                    fila.datosNovaweb.fechaNacimiento;
+                        }
+                    }
                 }
 
 
+                /*
+                 * A PARTIR DE AQUÍ SE CONSERVA LA LÓGICA
+                 * EXISTENTE DE tblAportes.
+                 */
                 boolean aporteExiste =
                         existeAporte(
                                 fila.documento
@@ -305,6 +676,57 @@ public class FemprobienImportService {
                 );
 
                 item.put(
+                        "fechaNacimiento",
+                        fila.fechaNacimiento == null
+                                ? ""
+                                : fila.fechaNacimiento.toString()
+                );
+
+                /*
+                 * Se conserva para no afectar respuestas
+                 * que ya consuman este campo.
+                 */
+                item.put(
+                        "fechaNacimientoActualizada",
+                        fechaNacimientoActualizada
+                );
+
+                item.put(
+                        "datosAsociadoCompletados",
+                        datosAsociadoCompletados
+                );
+
+
+                if (fila.datosNovaweb != null) {
+
+                    item.put(
+                            "baseNovaweb",
+                            fila.datosNovaweb.baseDatos
+                    );
+
+                    item.put(
+                            "celularNovaweb",
+                            fila.datosNovaweb.celular
+                    );
+
+                    item.put(
+                            "correoNovaweb",
+                            fila.datosNovaweb.correo
+                    );
+
+                    item.put(
+                            "cargoNovaweb",
+                            fila.datosNovaweb.cargo
+                    );
+
+                    item.put(
+                            "bancoNovaweb",
+                            fila.datosNovaweb.banco
+                    );
+                }
+
+
+                item.put(
                         "operacion",
                         accionRealizada
                 );
@@ -314,11 +736,25 @@ public class FemprobienImportService {
                         "OK"
                 );
 
-                item.put(
-                        "mensaje",
+
+                String mensaje =
                         mensajeOperacionRealizada(
                                 accionRealizada
-                        )
+                        );
+
+
+                if (datosAsociadoCompletados) {
+
+                    mensaje =
+                            mensaje
+                                    + " Se completaron datos faltantes "
+                                    + "del asociado desde NOVAWEB.";
+                }
+
+
+                item.put(
+                        "mensaje",
+                        mensaje
                 );
 
                 detalleProceso.add(
@@ -327,7 +763,6 @@ public class FemprobienImportService {
 
 
             } catch (Exception e) {
-
 
                 throw new IllegalStateException(
                         "Error procesando la fila "
@@ -391,6 +826,22 @@ public class FemprobienImportService {
                 aportesActualizados
         );
 
+        /*
+         * Campo existente.
+         */
+        response.put(
+                "fechasNacimientoActualizadas",
+                fechasNacimientoActualizadas
+        );
+
+        /*
+         * Nuevo campo.
+         */
+        response.put(
+                "asociadosConDatosCompletados",
+                asociadosConDatosCompletados
+        );
+
         response.put(
                 "errores",
                 0
@@ -417,6 +868,7 @@ public class FemprobienImportService {
 
 
 
+
     private AnalisisArchivo analizarArchivo(
             MultipartFile archivo) throws Exception {
 
@@ -437,6 +889,14 @@ public class FemprobienImportService {
 
         Set<String> aportesExistentes =
                 cargarDocumentosAportes();
+
+
+        /*
+         * Igual que en la implementación que ya tenías:
+         * obtenemos las bases NOVAWEB una sola vez por archivo.
+         */
+        List<String> basesNovaweb =
+                obtenerBasesNovaweb();
 
 
         try (
@@ -689,6 +1149,12 @@ public class FemprobienImportService {
                                 );
 
 
+                        AsociadoDb asociadoExistente =
+                                asociadosExistentes.get(
+                                        documento
+                                );
+
+
                         boolean existeAporte =
                                 aportesExistentes.contains(
                                         documento
@@ -710,6 +1176,10 @@ public class FemprobienImportService {
 
                         } else {
 
+                            /*
+                             * Se conserva exactamente la lectura dinámica
+                             * de aportes desde el Excel.
+                             */
                             fila.valoresAportes =
                                     leerValoresAportes(
                                             row,
@@ -725,33 +1195,173 @@ public class FemprobienImportService {
 
                             if (!existeAsociado) {
 
-                                fila.operacion =
-                                        NUEVO_ASOCIADO_APORTE;
+                                /*
+                                 * ASOCIADO NUEVO.
+                                 *
+                                 * Antes solamente buscábamos fec_nac.
+                                 * Ahora recuperamos también los demás
+                                 * datos disponibles en NOVAWEB.
+                                 */
+                                fila.datosNovaweb =
+                                        buscarDatosEmpleadoNovaweb(
+                                                documento,
+                                                basesNovaweb
+                                        );
 
-                                fila.mensaje =
-                                        "Se crearía el asociado en tblAsociado y su registro en tblAportes.";
 
-                                analisis.nuevosAsociados++;
+                                if (fila.datosNovaweb == null) {
 
-                            } else if (!existeAporte) {
+                                    marcarError(
+                                            fila,
+                                            "El asociado es nuevo y no fue posible encontrar "
+                                                    + "el documento "
+                                                    + documento
+                                                    + " en las bases NOVAWEB."
+                                    );
 
-                                fila.operacion =
-                                        NUEVO_APORTE;
+                                } else if (
+                                        fila.datosNovaweb.fechaNacimiento == null
+                                ) {
 
-                                fila.mensaje =
-                                        "El asociado ya existe y se crearía su registro en tblAportes.";
+                                    /*
+                                     * Conservamos la validación que ya tenías:
+                                     * un asociado nuevo no se crea sin fec_nac.
+                                     */
+                                    marcarError(
+                                            fila,
+                                            "El asociado es nuevo y no fue posible encontrar "
+                                                    + "la fecha de nacimiento del documento "
+                                                    + documento
+                                                    + " en las bases NOVAWEB."
+                                    );
 
-                                analisis.nuevosAportes++;
+                                } else {
+
+                                    fila.fechaNacimiento =
+                                            fila.datosNovaweb.fechaNacimiento;
+
+
+                                    /*
+                                     * La fecha del Excel tiene prioridad.
+                                     * NOVAWEB solo se usa si el Excel viene vacío.
+                                     */
+                                    if (
+                                            fila.fechaIngreso == null
+                                                    && fila.datosNovaweb.fechaIngreso != null
+                                    ) {
+
+                                        fila.fechaIngreso =
+                                                fila.datosNovaweb.fechaIngreso;
+                                    }
+
+
+                                    fila.operacion =
+                                            NUEVO_ASOCIADO_APORTE;
+
+                                    fila.mensaje =
+                                            "Se crearía el asociado en tblAsociado "
+                                                    + "con la información encontrada en NOVAWEB "
+                                                    + "y su registro en tblAportes.";
+
+                                    analisis.nuevosAsociados++;
+                                }
 
                             } else {
 
-                                fila.operacion =
-                                        ACTUALIZAR_APORTE;
+                                /*
+                                 * ASOCIADO EXISTENTE.
+                                 *
+                                 * Solo consultamos NOVAWEB si encontramos
+                                 * alguno de los campos que sabemos completar
+                                 * como NULL o vacío.
+                                 */
+                                if (
+                                        asociadoExistente != null
+                                                && tieneDatosFaltantes(
+                                                asociadoExistente
+                                        )
+                                ) {
 
-                                fila.mensaje =
-                                        "El asociado y sus aportes ya existen; se actualizaría tblAportes.";
+                                    fila.datosNovaweb =
+                                            buscarDatosEmpleadoNovaweb(
+                                                    documento,
+                                                    basesNovaweb
+                                            );
+                                }
 
-                                analisis.aportesActualizar++;
+
+                                /*
+                                 * Se conserva el comportamiento anterior
+                                 * respecto a fec_nac.
+                                 */
+                                if (
+                                        asociadoExistente != null
+                                                && asociadoExistente.fechaNacimiento != null
+                                ) {
+
+                                    fila.fechaNacimiento =
+                                            asociadoExistente.fechaNacimiento;
+
+                                } else if (
+                                        fila.datosNovaweb != null
+                                ) {
+
+                                    fila.fechaNacimiento =
+                                            fila.datosNovaweb.fechaNacimiento;
+                                }
+
+
+                                if (!existeAporte) {
+
+                                    fila.operacion =
+                                            NUEVO_APORTE;
+
+                                    if (
+                                            fila.datosNovaweb != null
+                                                    && hayDatoNovawebParaCompletar(
+                                                    asociadoExistente,
+                                                    fila.datosNovaweb
+                                            )
+                                    ) {
+
+                                        fila.mensaje =
+                                                "El asociado ya existe y se crearía su registro "
+                                                        + "en tblAportes. Además se completarían "
+                                                        + "los datos faltantes encontrados en NOVAWEB.";
+
+                                    } else {
+
+                                        fila.mensaje =
+                                                "El asociado ya existe y se crearía su registro en tblAportes.";
+                                    }
+
+                                    analisis.nuevosAportes++;
+
+                                } else {
+
+                                    fila.operacion =
+                                            ACTUALIZAR_APORTE;
+
+                                    if (
+                                            fila.datosNovaweb != null
+                                                    && hayDatoNovawebParaCompletar(
+                                                    asociadoExistente,
+                                                    fila.datosNovaweb
+                                            )
+                                    ) {
+
+                                        fila.mensaje =
+                                                "El asociado y sus aportes ya existen; se actualizaría tblAportes "
+                                                        + "y se completarían los datos faltantes encontrados en NOVAWEB.";
+
+                                    } else {
+
+                                        fila.mensaje =
+                                                "El asociado y sus aportes ya existen; se actualizaría tblAportes.";
+                                    }
+
+                                    analisis.aportesActualizar++;
+                                }
                             }
                         }
                     }
@@ -782,6 +1392,7 @@ public class FemprobienImportService {
             return analisis;
         }
     }
+
 
 
     private Map<String, Object> construirRespuestaValidacion(
@@ -875,6 +1486,13 @@ public class FemprobienImportService {
             );
 
             item.put(
+                    "fechaNacimiento",
+                    fila.fechaNacimiento == null
+                            ? ""
+                            : fila.fechaNacimiento.toString()
+            );
+
+            item.put(
                     "fechaIngreso",
                     fila.fechaIngreso == null
                             ? ""
@@ -887,6 +1505,42 @@ public class FemprobienImportService {
                             ? ""
                             : fila.fechaRetiro.toString()
             );
+
+
+            /*
+             * Campos adicionales de previsualización.
+             * No modifican la estructura anterior de respuesta;
+             * solamente agregan información cuando NOVAWEB
+             * fue consultado.
+             */
+            if (fila.datosNovaweb != null) {
+
+                item.put(
+                        "baseNovaweb",
+                        fila.datosNovaweb.baseDatos
+                );
+
+                item.put(
+                        "celularNovaweb",
+                        fila.datosNovaweb.celular
+                );
+
+                item.put(
+                        "correoNovaweb",
+                        fila.datosNovaweb.correo
+                );
+
+                item.put(
+                        "cargoNovaweb",
+                        fila.datosNovaweb.cargo
+                );
+
+                item.put(
+                        "bancoNovaweb",
+                        fila.datosNovaweb.banco
+                );
+            }
+
 
             item.put(
                     "operacion",
@@ -919,6 +1573,817 @@ public class FemprobienImportService {
     }
 
 
+    private List<String> obtenerBasesNovaweb() {
+
+        return sqlServerJdbcTemplate.queryForList(
+                "SELECT name "
+                        + "FROM sys.databases "
+                        + "WHERE name LIKE '%[_]NOVAWEB' "
+                        + "AND state_desc = 'ONLINE' "
+                        + "ORDER BY name",
+                String.class
+        );
+    }
+
+
+
+    private DatosEmpleadoNovaweb buscarDatosEmpleadoNovaweb(
+            String documento,
+            List<String> basesNovaweb) {
+
+        String documentoNormalizado =
+                normalizarDocumento(
+                        documento
+                );
+
+
+        if (
+                documentoNormalizado == null
+                        || documentoNormalizado.trim().isEmpty()
+        ) {
+
+            return null;
+        }
+
+
+        List<DatosEmpleadoNovaweb> encontrados =
+                new ArrayList<>();
+
+
+        Set<String> fechasNacimiento =
+                new HashSet<>();
+
+
+        for (
+                String baseDatos
+                : basesNovaweb
+        ) {
+
+            if (
+                    baseDatos == null
+                            || baseDatos.trim().isEmpty()
+            ) {
+                continue;
+            }
+
+
+            /*
+             * El nombre de una base no puede enviarse como
+             * parámetro SQL, por eso validamos caracteres seguros
+             * antes de concatenarlo.
+             */
+            if (
+                    !baseDatos.matches(
+                            "^[A-Za-z0-9_]+$"
+                    )
+            ) {
+                continue;
+            }
+
+
+            String sql =
+                    "SELECT TOP 1 "
+                            + "CAST(E.fec_nac AS DATE) AS fec_nac, "
+                            + "CAST(E.fec_ing AS DATE) AS fec_ing, "
+                            + "CAST(E.fec_egr AS DATE) AS fec_egr, "
+                            + "LTRIM(RTRIM(E.dir_res)) AS dir_res, "
+                            + "LTRIM(RTRIM(E.barrio)) AS barrio, "
+                            + "LTRIM(RTRIM(E.tel_res)) AS tel_res, "
+                            + "LTRIM(RTRIM(E.tel_cel)) AS tel_cel, "
+                            + "LTRIM(RTRIM(E.e_mail)) AS e_mail, "
+                            + "E.sal_bas AS sal_bas, "
+                            + "LTRIM(RTRIM(CAST(E.cod_car AS VARCHAR(50)))) AS cod_car, "
+                            + "LTRIM(RTRIM(CAST(E.cod_ban AS VARCHAR(50)))) AS cod_ban, "
+                            + "LTRIM(RTRIM(CAST(E.cta_ban AS VARCHAR(100)))) AS cta_ban "
+                            + "FROM ["
+                            + baseDatos
+                            + "].dbo.v_EmpleadosNOM E "
+                            + "WHERE LTRIM(RTRIM(CAST(E.cod_emp AS VARCHAR(50)))) = ? "
+                            + "ORDER BY "
+                            + "CASE WHEN E.fec_egr IS NULL THEN 0 ELSE 1 END, "
+                            + "E.fec_ing DESC";
+
+
+            try {
+
+                List<DatosEmpleadoNovaweb> datosBase =
+                        sqlServerJdbcTemplate.query(
+                                sql,
+                                new Object[]{
+                                        documentoNormalizado
+                                },
+                                (rs, rowNum) -> {
+
+                                    DatosEmpleadoNovaweb datos =
+                                            new DatosEmpleadoNovaweb();
+
+
+                                    datos.baseDatos =
+                                            baseDatos;
+
+                                    datos.fechaNacimiento =
+                                            rs.getDate(
+                                                    "fec_nac"
+                                            );
+
+                                    datos.fechaIngreso =
+                                            rs.getDate(
+                                                    "fec_ing"
+                                            );
+
+                                    datos.fechaEgreso =
+                                            rs.getDate(
+                                                    "fec_egr"
+                                            );
+
+                                    datos.direccion =
+                                            limpiarTexto(
+                                                    rs.getString(
+                                                            "dir_res"
+                                                    )
+                                            );
+
+                                    datos.barrio =
+                                            limpiarTexto(
+                                                    rs.getString(
+                                                            "barrio"
+                                                    )
+                                            );
+
+                                    datos.telefono =
+                                            limpiarTexto(
+                                                    rs.getString(
+                                                            "tel_res"
+                                                    )
+                                            );
+
+                                    datos.celular =
+                                            limpiarTexto(
+                                                    rs.getString(
+                                                            "tel_cel"
+                                                    )
+                                            );
+
+                                    datos.correo =
+                                            limpiarTexto(
+                                                    rs.getString(
+                                                            "e_mail"
+                                                    )
+                                            );
+
+                                    datos.salario =
+                                            rs.getBigDecimal(
+                                                    "sal_bas"
+                                            );
+
+                                    datos.codigoCargo =
+                                            limpiarTexto(
+                                                    rs.getString(
+                                                            "cod_car"
+                                                    )
+                                            );
+
+                                    datos.codigoBanco =
+                                            limpiarTexto(
+                                                    rs.getString(
+                                                            "cod_ban"
+                                                    )
+                                            );
+
+                                    datos.cuentaBancaria =
+                                            limpiarTexto(
+                                                    rs.getString(
+                                                            "cta_ban"
+                                                    )
+                                            );
+
+
+                                    return datos;
+                                }
+                        );
+
+
+                for (
+                        DatosEmpleadoNovaweb datos
+                        : datosBase
+                ) {
+
+                    /*
+                     * La vista devuelve el código del cargo,
+                     * pero la descripción está en rhh_cargos.
+                     */
+                    datos.cargo =
+                            buscarNombreCargoNovaweb(
+                                    baseDatos,
+                                    datos.codigoCargo
+                            );
+
+
+                    /*
+                     * La vista devuelve el código del banco,
+                     * pero la descripción está en gen_bancos.
+                     */
+                    datos.banco =
+                            buscarNombreBancoNovaweb(
+                                    baseDatos,
+                                    datos.codigoBanco
+                            );
+
+
+                    encontrados.add(
+                            datos
+                    );
+
+
+                    if (
+                            datos.fechaNacimiento != null
+                    ) {
+
+                        fechasNacimiento.add(
+                                datos.fechaNacimiento.toString()
+                        );
+                    }
+                }
+
+
+            } catch (Exception e) {
+
+                /*
+                 * Conservamos el enfoque que ya tenías:
+                 * si una NOVAWEB no se puede consultar,
+                 * continuamos buscando en las demás.
+                 */
+                System.err.println(
+                        "[FEMPROBIEN] No fue posible consultar "
+                                + baseDatos
+                                + " para el documento "
+                                + documentoNormalizado
+                                + ". Error: "
+                                + e.getMessage()
+                );
+            }
+        }
+
+
+        if (
+                encontrados.isEmpty()
+        ) {
+
+            return null;
+        }
+
+
+        /*
+         * Se conserva la protección que ya existía para fec_nac.
+         * Si el mismo documento aparece con fechas diferentes,
+         * no elegimos una arbitrariamente.
+         */
+        if (
+                fechasNacimiento.size() > 1
+        ) {
+
+            throw new IllegalArgumentException(
+                    "Se encontraron diferentes fechas de nacimiento "
+                            + "para el documento "
+                            + documentoNormalizado
+                            + " en las bases NOVAWEB: "
+                            + fechasNacimiento
+            );
+        }
+
+
+        DatosEmpleadoNovaweb resultado =
+                null;
+
+
+        /*
+         * Si el documento aparece en varias empresas,
+         * priorizamos:
+         *
+         * 1. Registro laboral activo.
+         * 2. Ingreso más reciente.
+         */
+        for (
+                DatosEmpleadoNovaweb candidato
+                : encontrados
+        ) {
+
+            if (
+                    resultado == null
+                            || esMejorRegistroNovaweb(
+                            candidato,
+                            resultado
+                    )
+            ) {
+
+                resultado =
+                        candidato;
+            }
+        }
+
+
+        /*
+         * Si el registro elegido tiene algún dato personal
+         * vacío, podemos aprovecharlo desde otra NOVAWEB
+         * donde aparezca el mismo documento.
+         *
+         * Los datos laborales (cargo, salario, banco)
+         * permanecen asociados al registro laboral elegido.
+         */
+        for (
+                DatosEmpleadoNovaweb otro
+                : encontrados
+        ) {
+
+            completarDatosPersonalesNovaweb(
+                    resultado,
+                    otro
+            );
+        }
+
+
+        /*
+         * Si todas las bases coinciden en una sola fec_nac,
+         * garantizamos que quede en el resultado seleccionado.
+         */
+        if (
+                resultado.fechaNacimiento == null
+                        && fechasNacimiento.size() == 1
+        ) {
+
+            resultado.fechaNacimiento =
+                    Date.valueOf(
+                            fechasNacimiento
+                                    .iterator()
+                                    .next()
+                    );
+        }
+
+
+        return resultado;
+    }
+
+
+    private String buscarNombreCargoNovaweb(
+            String baseDatos,
+            String codigoCargo) {
+
+        if (
+                esVacio(baseDatos)
+                        || esVacio(codigoCargo)
+        ) {
+
+            return "";
+        }
+
+
+        try {
+
+            List<String> resultados =
+                    sqlServerJdbcTemplate.queryForList(
+                            "SELECT TOP 1 "
+                                    + "LTRIM(RTRIM(nom_car)) "
+                                    + "FROM ["
+                                    + baseDatos
+                                    + "].dbo.rhh_cargos "
+                                    + "WHERE LTRIM(RTRIM(CAST(cod_car AS VARCHAR(50)))) = ?",
+                            new Object[]{
+                                    codigoCargo
+                            },
+                            String.class
+                    );
+
+
+            return resultados.isEmpty()
+                    ? ""
+                    : limpiarTexto(
+                    resultados.get(0)
+            );
+
+
+        } catch (Exception e) {
+
+            System.err.println(
+                    "[FEMPROBIEN] No fue posible consultar el cargo "
+                            + codigoCargo
+                            + " en "
+                            + baseDatos
+                            + ". Error: "
+                            + e.getMessage()
+            );
+
+            return "";
+        }
+    }
+
+
+    private String buscarNombreBancoNovaweb(
+            String baseDatos,
+            String codigoBanco) {
+
+        if (
+                esVacio(baseDatos)
+                        || esVacio(codigoBanco)
+        ) {
+
+            return "";
+        }
+
+
+        try {
+
+            List<String> resultados =
+                    sqlServerJdbcTemplate.queryForList(
+                            "SELECT TOP 1 "
+                                    + "LTRIM(RTRIM(nom_ban)) "
+                                    + "FROM ["
+                                    + baseDatos
+                                    + "].dbo.gen_bancos "
+                                    + "WHERE LTRIM(RTRIM(CAST(cod_ban AS VARCHAR(50)))) = ?",
+                            new Object[]{
+                                    codigoBanco
+                            },
+                            String.class
+                    );
+
+
+            return resultados.isEmpty()
+                    ? ""
+                    : limpiarTexto(
+                    resultados.get(0)
+            );
+
+
+        } catch (Exception e) {
+
+            System.err.println(
+                    "[FEMPROBIEN] No fue posible consultar el banco "
+                            + codigoBanco
+                            + " en "
+                            + baseDatos
+                            + ". Error: "
+                            + e.getMessage()
+            );
+
+            return "";
+        }
+    }
+
+
+    private boolean esMejorRegistroNovaweb(
+            DatosEmpleadoNovaweb candidato,
+            DatosEmpleadoNovaweb actual) {
+
+        boolean candidatoActivo =
+                candidato.fechaEgreso == null;
+
+        boolean actualActivo =
+                actual.fechaEgreso == null;
+
+
+        if (
+                candidatoActivo
+                        && !actualActivo
+        ) {
+
+            return true;
+        }
+
+
+        if (
+                !candidatoActivo
+                        && actualActivo
+        ) {
+
+            return false;
+        }
+
+
+        if (
+                candidato.fechaIngreso == null
+        ) {
+
+            return false;
+        }
+
+
+        if (
+                actual.fechaIngreso == null
+        ) {
+
+            return true;
+        }
+
+
+        return candidato
+                .fechaIngreso
+                .after(
+                        actual.fechaIngreso
+                );
+    }
+
+
+    private void completarDatosPersonalesNovaweb(
+            DatosEmpleadoNovaweb destino,
+            DatosEmpleadoNovaweb origen) {
+
+        if (
+                destino == null
+                        || origen == null
+        ) {
+
+            return;
+        }
+
+
+        if (
+                destino.fechaNacimiento == null
+                        && origen.fechaNacimiento != null
+        ) {
+
+            destino.fechaNacimiento =
+                    origen.fechaNacimiento;
+        }
+
+
+        if (
+                esVacio(destino.direccion)
+                        && !esVacio(origen.direccion)
+        ) {
+
+            destino.direccion =
+                    origen.direccion;
+        }
+
+
+        if (
+                esVacio(destino.barrio)
+                        && !esVacio(origen.barrio)
+        ) {
+
+            destino.barrio =
+                    origen.barrio;
+        }
+
+
+        if (
+                esVacio(destino.telefono)
+                        && !esVacio(origen.telefono)
+        ) {
+
+            destino.telefono =
+                    origen.telefono;
+        }
+
+
+        if (
+                esVacio(destino.celular)
+                        && !esVacio(origen.celular)
+        ) {
+
+            destino.celular =
+                    origen.celular;
+        }
+
+
+        if (
+                esVacio(destino.correo)
+                        && !esVacio(origen.correo)
+        ) {
+
+            destino.correo =
+                    origen.correo;
+        }
+    }
+
+
+
+    private int completarDatosFaltantesAsociado(
+            String documento,
+            DatosEmpleadoNovaweb datos) {
+
+        if (
+                documento == null
+                        || documento.trim().isEmpty()
+                        || datos == null
+        ) {
+
+            return 0;
+        }
+
+
+        String sql =
+                "UPDATE FEMPROBIEN.dbo.tblAsociado SET "
+
+                        + "fec_nac = CASE "
+                        + "WHEN fec_nac IS NULL "
+                        + "THEN ? ELSE fec_nac END, "
+
+                        + "fec_ing = CASE "
+                        + "WHEN fec_ing IS NULL "
+                        + "THEN ? ELSE fec_ing END, "
+
+                        + "dir_res = CASE "
+                        + "WHEN dir_res IS NULL "
+                        + "OR LTRIM(RTRIM(dir_res)) = '' "
+                        + "THEN ? ELSE dir_res END, "
+
+                        + "nom_bar = CASE "
+                        + "WHEN nom_bar IS NULL "
+                        + "OR LTRIM(RTRIM(nom_bar)) = '' "
+                        + "THEN ? ELSE nom_bar END, "
+
+                        + "tel = CASE "
+                        + "WHEN tel IS NULL "
+                        + "OR LTRIM(RTRIM(tel)) = '' "
+                        + "THEN ? ELSE tel END, "
+
+                        + "cel = CASE "
+                        + "WHEN cel IS NULL "
+                        + "OR LTRIM(RTRIM(cel)) = '' "
+                        + "THEN ? ELSE cel END, "
+
+                        + "email_per = CASE "
+                        + "WHEN email_per IS NULL "
+                        + "OR LTRIM(RTRIM(email_per)) = '' "
+                        + "THEN ? ELSE email_per END, "
+
+                        + "sal_bas = CASE "
+                        + "WHEN sal_bas IS NULL "
+                        + "THEN ? ELSE sal_bas END, "
+
+                        + "cargo = CASE "
+                        + "WHEN cargo IS NULL "
+                        + "OR LTRIM(RTRIM(cargo)) = '' "
+                        + "THEN ? ELSE cargo END, "
+
+                        + "banco = CASE "
+                        + "WHEN banco IS NULL "
+                        + "OR LTRIM(RTRIM(banco)) = '' "
+                        + "THEN ? ELSE banco END, "
+
+                        + "n_cuenta = CASE "
+                        + "WHEN n_cuenta IS NULL "
+                        + "OR LTRIM(RTRIM(n_cuenta)) = '' "
+                        + "THEN ? ELSE n_cuenta END "
+
+                        + "WHERE LTRIM(RTRIM(cod_asp)) = ?";
+
+
+        return sqlServerJdbcTemplate.update(
+                sql,
+
+                datos.fechaNacimiento,
+
+                datos.fechaIngreso,
+
+                valorONull(
+                        datos.direccion
+                ),
+
+                valorONull(
+                        datos.barrio
+                ),
+
+                valorONull(
+                        datos.telefono
+                ),
+
+                valorONull(
+                        datos.celular
+                ),
+
+                valorONull(
+                        datos.correo
+                ),
+
+                datos.salario,
+
+                valorONull(
+                        datos.cargo
+                ),
+
+                valorONull(
+                        datos.banco
+                ),
+
+                valorONull(
+                        datos.cuentaBancaria
+                ),
+
+                documento.trim()
+        );
+    }
+
+
+    private boolean tieneDatosFaltantes(
+            AsociadoDb asociado) {
+
+        if (asociado == null) {
+            return true;
+        }
+
+
+        return asociado.fechaNacimiento == null
+
+                || asociado.fechaIngreso == null
+
+                || esVacio(
+                asociado.direccion
+        )
+
+                || esVacio(
+                asociado.barrio
+        )
+
+                || esVacio(
+                asociado.telefono
+        )
+
+                || esVacio(
+                asociado.celular
+        )
+
+                || esVacio(
+                asociado.correo
+        )
+
+                || asociado.salario == null
+
+                || esVacio(
+                asociado.cargo
+        )
+
+                || esVacio(
+                asociado.banco
+        )
+
+                || esVacio(
+                asociado.cuentaBancaria
+        );
+    }
+
+
+    private boolean hayDatoNovawebParaCompletar(
+            AsociadoDb asociado,
+            DatosEmpleadoNovaweb datos) {
+
+        if (
+                asociado == null
+                        || datos == null
+        ) {
+            return false;
+        }
+
+
+        return (
+                asociado.fechaNacimiento == null
+                        && datos.fechaNacimiento != null
+        )
+                || (
+                asociado.fechaIngreso == null
+                        && datos.fechaIngreso != null
+        )
+                || (
+                esVacio(asociado.direccion)
+                        && !esVacio(datos.direccion)
+        )
+                || (
+                esVacio(asociado.barrio)
+                        && !esVacio(datos.barrio)
+        )
+                || (
+                esVacio(asociado.telefono)
+                        && !esVacio(datos.telefono)
+        )
+                || (
+                esVacio(asociado.celular)
+                        && !esVacio(datos.celular)
+        )
+                || (
+                esVacio(asociado.correo)
+                        && !esVacio(datos.correo)
+        )
+                || (
+                asociado.salario == null
+                        && datos.salario != null
+        )
+                || (
+                esVacio(asociado.cargo)
+                        && !esVacio(datos.cargo)
+        )
+                || (
+                esVacio(asociado.banco)
+                        && !esVacio(datos.banco)
+        )
+                || (
+                esVacio(asociado.cuentaBancaria)
+                        && !esVacio(datos.cuentaBancaria)
+        );
+    }
+
+
+
     private AsociadoDb insertarAsociadoNuevo(
             FilaImportacion fila) {
 
@@ -930,15 +2395,52 @@ public class FemprobienImportService {
                 fila.fechaRetiro == null;
 
 
+        DatosEmpleadoNovaweb datos =
+                fila.datosNovaweb;
+
+
+        if (
+                datos == null
+                        || datos.fechaNacimiento == null
+        ) {
+
+            throw new IllegalArgumentException(
+                    "No se puede crear el asociado con documento "
+                            + fila.documento
+                            + " porque no se encontró su fecha de nacimiento."
+            );
+        }
+
+
+        /*
+         * Se conserva la fecha de ingreso del Excel cuando existe.
+         * NOVAWEB solo sirve como respaldo si viene vacía.
+         */
+        Date fechaIngreso =
+                fila.fechaIngreso != null
+                        ? fila.fechaIngreso
+                        : datos.fechaIngreso;
+
+
         String sql =
-                "INSERT INTO FEMPROBIEN.dbo.tblAsociado (" +
-                        "id_aso, " +
-                        "cod_asp, " +
-                        "nom_aso, " +
-                        "fec_ing, " +
-                        "fecha_retiro, " +
-                        "activo" +
-                        ") VALUES (?, ?, ?, ?, ?, ?)";
+                "INSERT INTO FEMPROBIEN.dbo.tblAsociado ("
+                        + "id_aso, "
+                        + "cod_asp, "
+                        + "nom_aso, "
+                        + "fec_nac, "
+                        + "fec_ing, "
+                        + "fecha_retiro, "
+                        + "dir_res, "
+                        + "nom_bar, "
+                        + "tel, "
+                        + "cel, "
+                        + "email_per, "
+                        + "sal_bas, "
+                        + "cargo, "
+                        + "banco, "
+                        + "n_cuenta, "
+                        + "activo"
+                        + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
 
         sqlServerJdbcTemplate.update(
@@ -946,8 +2448,34 @@ public class FemprobienImportService {
                 siguienteId,
                 fila.documento,
                 fila.nombre,
-                fila.fechaIngreso,
+                datos.fechaNacimiento,
+                fechaIngreso,
                 fila.fechaRetiro,
+                valorONull(
+                        datos.direccion
+                ),
+                valorONull(
+                        datos.barrio
+                ),
+                valorONull(
+                        datos.telefono
+                ),
+                valorONull(
+                        datos.celular
+                ),
+                valorONull(
+                        datos.correo
+                ),
+                datos.salario,
+                valorONull(
+                        datos.cargo
+                ),
+                valorONull(
+                        datos.banco
+                ),
+                valorONull(
+                        datos.cuentaBancaria
+                ),
                 activo
         );
 
@@ -960,6 +2488,39 @@ public class FemprobienImportService {
 
         asociado.codAsp =
                 fila.documento;
+
+        asociado.fechaNacimiento =
+                datos.fechaNacimiento;
+
+        asociado.fechaIngreso =
+                fechaIngreso;
+
+        asociado.direccion =
+                datos.direccion;
+
+        asociado.barrio =
+                datos.barrio;
+
+        asociado.telefono =
+                datos.telefono;
+
+        asociado.celular =
+                datos.celular;
+
+        asociado.correo =
+                datos.correo;
+
+        asociado.salario =
+                datos.salario;
+
+        asociado.cargo =
+                datos.cargo;
+
+        asociado.banco =
+                datos.banco;
+
+        asociado.cuentaBancaria =
+                datos.cuentaBancaria;
 
         asociado.activo =
                 activo;
@@ -2011,17 +3572,29 @@ public class FemprobienImportService {
     }
 
 
+
     private Map<String, AsociadoDb> cargarAsociados() {
 
         String sql =
-                "SELECT " +
-                        "id_aso, " +
-                        "LTRIM(RTRIM(cod_asp)) AS cod_asp, " +
-                        "activo, " +
-                        "fecha_retiro " +
-                        "FROM FEMPROBIEN.dbo.tblAsociado " +
-                        "WHERE cod_asp IS NOT NULL " +
-                        "AND LTRIM(RTRIM(cod_asp)) <> ''";
+                "SELECT "
+                        + "id_aso, "
+                        + "LTRIM(RTRIM(cod_asp)) AS cod_asp, "
+                        + "fec_nac, "
+                        + "fec_ing, "
+                        + "dir_res, "
+                        + "nom_bar, "
+                        + "tel, "
+                        + "cel, "
+                        + "email_per, "
+                        + "sal_bas, "
+                        + "cargo, "
+                        + "banco, "
+                        + "n_cuenta, "
+                        + "activo, "
+                        + "fecha_retiro "
+                        + "FROM FEMPROBIEN.dbo.tblAsociado "
+                        + "WHERE cod_asp IS NOT NULL "
+                        + "AND LTRIM(RTRIM(cod_asp)) <> ''";
 
 
         List<Map<String, Object>> filas =
@@ -2053,24 +3626,9 @@ public class FemprobienImportService {
 
 
             AsociadoDb asociado =
-                    new AsociadoDb();
-
-            asociado.idAso =
-                    fila.get("id_aso") == null
-                            ? null
-                            : ((Number) fila.get("id_aso")).intValue();
-
-            asociado.codAsp =
-                    documento;
-
-            asociado.activo =
-                    convertirBooleanSql(
-                            fila.get("activo")
-                    );
-
-            asociado.fechaRetiro =
-                    convertirFechaSql(
-                            fila.get("fecha_retiro")
+                    convertirAsociadoDb(
+                            fila,
+                            documento
                     );
 
 
@@ -2085,17 +3643,29 @@ public class FemprobienImportService {
     }
 
 
+
     private AsociadoDb obtenerAsociado(
             String documento) {
 
         String sql =
-                "SELECT TOP 1 " +
-                        "id_aso, " +
-                        "LTRIM(RTRIM(cod_asp)) AS cod_asp, " +
-                        "activo, " +
-                        "fecha_retiro " +
-                        "FROM FEMPROBIEN.dbo.tblAsociado " +
-                        "WHERE LTRIM(RTRIM(cod_asp)) = ?";
+                "SELECT TOP 1 "
+                        + "id_aso, "
+                        + "LTRIM(RTRIM(cod_asp)) AS cod_asp, "
+                        + "fec_nac, "
+                        + "fec_ing, "
+                        + "dir_res, "
+                        + "nom_bar, "
+                        + "tel, "
+                        + "cel, "
+                        + "email_per, "
+                        + "sal_bas, "
+                        + "cargo, "
+                        + "banco, "
+                        + "n_cuenta, "
+                        + "activo, "
+                        + "fecha_retiro "
+                        + "FROM FEMPROBIEN.dbo.tblAsociado "
+                        + "WHERE LTRIM(RTRIM(cod_asp)) = ?";
 
 
         List<Map<String, Object>> filas =
@@ -2110,12 +3680,20 @@ public class FemprobienImportService {
         }
 
 
-        Map<String, Object> fila =
-                filas.get(0);
+        return convertirAsociadoDb(
+                filas.get(0),
+                documento
+        );
+    }
 
+
+    private AsociadoDb convertirAsociadoDb(
+            Map<String, Object> fila,
+            String documento) {
 
         AsociadoDb asociado =
                 new AsociadoDb();
+
 
         asociado.idAso =
                 fila.get("id_aso") == null
@@ -2124,6 +3702,61 @@ public class FemprobienImportService {
 
         asociado.codAsp =
                 documento;
+
+        asociado.fechaNacimiento =
+                convertirFechaSql(
+                        fila.get("fec_nac")
+                );
+
+        asociado.fechaIngreso =
+                convertirFechaSql(
+                        fila.get("fec_ing")
+                );
+
+        asociado.direccion =
+                textoMapa(
+                        fila.get("dir_res")
+                );
+
+        asociado.barrio =
+                textoMapa(
+                        fila.get("nom_bar")
+                );
+
+        asociado.telefono =
+                textoMapa(
+                        fila.get("tel")
+                );
+
+        asociado.celular =
+                textoMapa(
+                        fila.get("cel")
+                );
+
+        asociado.correo =
+                textoMapa(
+                        fila.get("email_per")
+                );
+
+        asociado.salario =
+                convertirBigDecimal(
+                        fila.get("sal_bas")
+                );
+
+        asociado.cargo =
+                textoMapa(
+                        fila.get("cargo")
+                );
+
+        asociado.banco =
+                textoMapa(
+                        fila.get("banco")
+                );
+
+        asociado.cuentaBancaria =
+                textoMapa(
+                        fila.get("n_cuenta")
+                );
 
         asociado.activo =
                 convertirBooleanSql(
@@ -2871,6 +4504,87 @@ public class FemprobienImportService {
     }
 
 
+
+    private String textoMapa(
+            Object valor) {
+
+        return valor == null
+                ? ""
+                : valor.toString().trim();
+    }
+
+
+    private BigDecimal convertirBigDecimal(
+            Object valor) {
+
+        if (valor == null) {
+            return null;
+        }
+
+
+        if (valor instanceof BigDecimal) {
+            return (BigDecimal) valor;
+        }
+
+
+        if (valor instanceof Number) {
+
+            return BigDecimal.valueOf(
+                    ((Number) valor).doubleValue()
+            );
+        }
+
+
+        try {
+
+            return new BigDecimal(
+                    valor.toString().trim()
+            );
+
+        } catch (Exception e) {
+
+            return null;
+        }
+    }
+
+
+    private String limpiarTexto(
+            String valor) {
+
+        if (valor == null) {
+            return "";
+        }
+
+
+        return valor.trim();
+    }
+
+
+    private boolean esVacio(
+            String valor) {
+
+        return valor == null
+                || valor.trim().isEmpty();
+    }
+
+
+    private String valorONull(
+            String valor) {
+
+        if (
+                esVacio(
+                        valor
+                )
+        ) {
+
+            return null;
+        }
+
+
+        return valor.trim();
+    }
+
+
     private String posicionCelda(
             Cell cell) {
 
@@ -2934,11 +4648,60 @@ public class FemprobienImportService {
     }
 
 
+
     private static class AsociadoDb {
         private Integer idAso;
         private String codAsp;
+
+        private Date fechaNacimiento;
+        private Date fechaIngreso;
+
+        private String direccion;
+        private String barrio;
+
+        private String telefono;
+        private String celular;
+        private String correo;
+
+        private BigDecimal salario;
+
+        private String cargo;
+        private String banco;
+        private String cuentaBancaria;
+
         private boolean activo;
         private Date fechaRetiro;
+    }
+
+
+    private static class DatosEmpleadoNovaweb {
+        private String baseDatos;
+
+        private Date fechaNacimiento;
+        private Date fechaIngreso;
+
+        /*
+         * Se utiliza únicamente para decidir cuál registro
+         * laboral NOVAWEB es el vigente/más reciente.
+         */
+        private Date fechaEgreso;
+
+        private String direccion;
+        private String barrio;
+
+        private String telefono;
+        private String celular;
+        private String correo;
+
+        private BigDecimal salario;
+
+        private String codigoCargo;
+        private String cargo;
+
+        private String codigoBanco;
+        private String banco;
+
+        private String cuentaBancaria;
     }
 
 
@@ -2946,11 +4709,21 @@ public class FemprobienImportService {
         private int numeroFila;
         private String documento = "";
         private String nombre = "";
+
+        private Date fechaNacimiento;
         private Date fechaIngreso;
         private Date fechaRetiro;
+
+        /*
+         * Datos recuperados desde NOVAWEB para enriquecer
+         * asociados nuevos o completar asociados existentes.
+         */
+        private DatosEmpleadoNovaweb datosNovaweb;
+
         private String operacion = ERROR;
         private boolean valido = false;
         private String mensaje = "";
+
         private Map<String, Object> valoresAportes =
                 new LinkedHashMap<>();
     }

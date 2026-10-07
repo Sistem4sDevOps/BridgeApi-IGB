@@ -304,6 +304,69 @@ public class FemprobienImportController {
     }
 
 
+
+    /* =========================================================
+       SINCRONIZAR DATOS FALTANTES DE ASOCIADOS
+
+       POST /femprobien/importacion/sincronizar-asociados
+
+       Completa únicamente campos NULL o vacíos desde NOVAWEB.
+       NO reemplaza información existente.
+       ========================================================= */
+    @PostMapping(
+            value = "/sincronizar-asociados"
+    )
+    public ResponseEntity<?> sincronizarAsociados(
+            @RequestParam(
+                    value = "usuario",
+                    required = false
+            )
+            String usuario) {
+
+        try {
+
+            String usuarioValidado =
+                    validarUsuarioImportacion(
+                            usuario
+                    );
+
+
+            Map<String, Object> resultado =
+                    femprobienImportService
+                            .sincronizarDatosFaltantesAsociados(
+                                    usuarioValidado
+                            );
+
+
+            return ResponseEntity.ok(
+                    resultado
+            );
+
+
+        } catch (SecurityException e) {
+
+            return forbidden(
+                    e.getMessage()
+            );
+
+
+        } catch (IllegalArgumentException e) {
+
+            return badRequest(
+                    e.getMessage()
+            );
+
+
+        } catch (Exception e) {
+
+            return internalError(
+                    "Ocurrió un error sincronizando los datos faltantes de los asociados.",
+                    e
+            );
+        }
+    }
+
+
     private String validarUsuarioImportacion(
             String usuario) {
 

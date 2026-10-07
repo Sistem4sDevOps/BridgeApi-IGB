@@ -27,15 +27,18 @@ public class FemprobienCreditService {
     private final JdbcTemplate jdbcTemplate;
     private final FemprobienCreditFileService creditFileService;
     private final FemprobienCreditEmailService creditEmailService;
+    private final FemprobienSimuladorService simuladorService;
 
     public FemprobienCreditService(
             @Qualifier("sqlServerJdbcTemplate") JdbcTemplate jdbcTemplate,
             FemprobienCreditFileService creditFileService,
-            FemprobienCreditEmailService creditEmailService) {
+            FemprobienCreditEmailService creditEmailService,
+            FemprobienSimuladorService simuladorService) {
 
         this.jdbcTemplate = jdbcTemplate;
         this.creditFileService = creditFileService;
         this.creditEmailService = creditEmailService;
+        this.simuladorService = simuladorService;
     }
 
     public synchronized Map<String, Object> crearSolicitud(
@@ -49,6 +52,7 @@ public class FemprobienCreditService {
 
         Map<String, Object> asociado = obtenerAsociadoActivo(codAsp);
 
+        simuladorService.validarAntiguedad(asociado);
         validarSolicitudAbierta(asociado.get("id_aso"));
         validarDatosBasicos(datos);
 
@@ -97,6 +101,8 @@ public class FemprobienCreditService {
             datos.put("usuario_solicitud", usuario);
         }
 
+        // La tasa proviene de SQL Server, nunca del valor enviado por el navegador.
+        simuladorService.fijarCondicionesSolicitud(datos);
         insertarSolicitud(datos);
 
         Integer idSolicitud = obtenerIdSolicitud(numeroSolicitud);
