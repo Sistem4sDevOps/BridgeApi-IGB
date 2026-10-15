@@ -17,8 +17,8 @@
 	<version>0.0.1-SNAPSHOT</version>
 	<packaging>war</packaging>
 
-	<name>ApiRest</name>
-	<description>ApiRestForIGB</description>
+	<name>BridgeApi</name>
+	<description>BridgeApiBackend</description>
 
 	<properties>
 		<java.version>1.8</java.version>

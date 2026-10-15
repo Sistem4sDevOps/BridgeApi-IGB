@@ -86,7 +86,7 @@ public class FemprobienSimuladorService {
         return r;
     }
     public void validarAntiguedad(Map<String,Object> asociado) {
-        Object fecha = asociado.get("fec_afi");
+        Object fecha = asociado.get("fec_ing");
         if (fecha == null) fecha = asociado.get("fecha_afiliacion");
         if (fecha == null || fecha.toString().length() < 10) throw new IllegalArgumentException("No hay fecha de afiliación registrada para verificar los 6 meses en el fondo. Contacte a FEMPROBIEN.");
         LocalDate afiliacion;
