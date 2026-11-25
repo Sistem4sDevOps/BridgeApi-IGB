@@ -92,11 +92,11 @@ public class FemprobienCreditImportService {
     }
 
     public Map<String, Object> validarArchivo(
-            MultipartFile archivo) throws Exception {
+            MultipartFile archivo, String periodo) throws Exception {
 
         Analisis analisis = analizarArchivo(
                 archivo,
-                resolverPeriodoCorte()
+                resolverPeriodoCorte(periodo)
         );
 
         return construirRespuestaValidacion(analisis);
@@ -104,12 +104,12 @@ public class FemprobienCreditImportService {
 
     public Map<String, Object> procesarArchivo(
             MultipartFile archivo,
-            String usuario) throws Exception {
+            String usuario, String periodo) throws Exception {
 
         final Analisis analisis =
                 analizarArchivo(
                         archivo,
-                        resolverPeriodoCorte()
+                        resolverPeriodoCorte(periodo)
                 );
 
         if (analisis.errores > 0) {
@@ -162,6 +162,29 @@ public class FemprobienCreditImportService {
             Map<String, String> columnasTabla,
             String usuario) {
 
+        // Registrar unicamente saldos provenientes de un corte verificado.
+        if (!columnasTabla.containsKey("fecha_corte_saldo")
+                || !columnasTabla.containsKey("fecha_importacion_saldo")) {
+            throw new IllegalStateException(
+                    "Faltan columnas de trazabilidad en FEMPROBIEN.dbo.tblAporteCredito."
+            );
+        }
+
+        final java.sql.Date fechaCorte =
+                java.sql.Date.valueOf(analisis.periodo.atEndOfMonth());
+
+        final java.sql.Timestamp fechaProceso =
+                jdbcTemplate.queryForObject(
+                        "SELECT SYSDATETIME()",
+                        java.sql.Timestamp.class
+                );
+
+        if (fechaProceso == null) {
+            throw new IllegalStateException(
+                    "No fue posible obtener la fecha de importacion de SQL Server."
+            );
+        }
+
         int insertados = 0;
         int actualizados = 0;
         int omitidos = 0;
@@ -192,6 +215,11 @@ public class FemprobienCreditImportService {
                                 columnasTabla
                         );
 
+                // Son dos fechas distintas: corte de Excel y proceso de carga.
+                // Solo se aplican a las filas realmente procesadas.
+                datos.put("fecha_corte_saldo", fechaCorte);
+                datos.put("fecha_importacion_saldo", fechaProceso);
+
                 if (INSERTAR_CREDITO.equals(fila.operacion)) {
 
                     insertarCredito(
@@ -199,6 +227,9 @@ public class FemprobienCreditImportService {
                             columnasTabla
                     );
 
+                    fila.idCreditoExistente = jdbcTemplate.queryForObject(
+                            "SELECT id FROM FEMPROBIEN.dbo.tblAporteCredito WHERE LTRIM(RTRIM(CAST(cod_asp AS VARCHAR(100)))) = ? AND val_desm = ? AND CAST(fecha_desem AS DATE) = ?",
+                            new Object[]{fila.documento, fila.valorDesembolsado.setScale(2, RoundingMode.HALF_UP), java.sql.Date.valueOf(fila.fechaDesembolso)}, Integer.class);
                     insertados++;
 
                 } else if (ACTUALIZAR_CREDITO.equals(fila.operacion)) {
@@ -211,6 +242,12 @@ public class FemprobienCreditImportService {
 
                     actualizados++;
                 }
+                List<Object[]> cierres = new ArrayList<>();
+                fila.saldosHistoricos.forEach((mes, saldo) -> cierres.add(new Object[]{saldo, fechaProceso,
+                        fila.idCreditoExistente, java.sql.Date.valueOf(mes), fila.idCreditoExistente, java.sql.Date.valueOf(mes), saldo, fechaProceso}));
+                if (!cierres.isEmpty()) jdbcTemplate.batchUpdate(
+                        "UPDATE FEMPROBIEN.dbo.tblCreditoSaldoHistorico SET saldo = ?, fecha_importacion = ? WHERE id_credito = ? AND periodo = ?; " +
+                        "IF @@ROWCOUNT = 0 INSERT INTO FEMPROBIEN.dbo.tblCreditoSaldoHistorico (id_credito, periodo, saldo, fecha_importacion) VALUES (?, ?, ?, ?)", cierres);
 
             } catch (Exception e) {
 
@@ -225,6 +262,22 @@ public class FemprobienCreditImportService {
                 );
             }
         }
+
+
+        // Misma transaccion que las inserciones y actualizaciones de saldo.
+        jdbcTemplate.update(
+                "INSERT INTO FEMPROBIEN.dbo.tblCarteraImportacion (" +
+                        "fecha_corte, fecha_proceso, usuario, " +
+                        "insertados, actualizados, omitidos, estado" +
+                        ") VALUES (?, ?, ?, ?, ?, ?, ?)",
+                fechaCorte,
+                fechaProceso,
+                usuario,
+                insertados,
+                actualizados,
+                omitidos,
+                "PROCESADO"
+        );
 
         Map<String, Object> response =
                 new LinkedHashMap<>();
@@ -252,6 +305,9 @@ public class FemprobienCreditImportService {
                         .atEndOfMonth()
                         .toString()
         );
+
+
+        response.put("fechaProceso", fechaProceso.toString());
 
         response.put(
                 "etiquetaPeriodo",
@@ -392,6 +448,11 @@ public class FemprobienCreditImportService {
             analisis.primeraColumnaSaldo = periodoExcel.primeraColumnaSaldo;
             analisis.filas = new ArrayList<>();
 
+            Map<Integer, LocalDate> cortesHistoricos = new LinkedHashMap<>();
+            for (Cell celda : header) {
+                YearMonth mes = leerPeriodoEncabezado(celda, formatter, evaluator);
+                if (mes != null && !mes.isAfter(periodo)) cortesHistoricos.put(celda.getColumnIndex(), mes.atEndOfMonth());
+            }
             Set<String> llavesCreditoExcel = new HashSet<>();
 
             for (int r = filaEncabezados + 1; r <= sheet.getLastRowNum(); r++) {
@@ -468,6 +529,13 @@ public class FemprobienCreditImportService {
                             evaluator,
                             "Valor cuota mensual"
                     );
+                    for (Map.Entry<Integer, LocalDate> corte : cortesHistoricos.entrySet()) {
+                        if (corte.getValue().isBefore(fila.fechaDesembolso)) continue;
+                        NumeroCelda saldoMes = leerNumeroCelda(row.getCell(corte.getKey()), evaluator, formatter);
+                        if (saldoMes.tieneNumero && saldoMes.valor.signum() >= 0) {
+                            fila.saldosHistoricos.put(corte.getValue(), saldoMes.valor.setScale(2, RoundingMode.HALF_UP));
+                        }
+                    }
 
                 } catch (IllegalArgumentException e) {
                     marcarError(fila, e.getMessage());
@@ -626,8 +694,13 @@ public class FemprobienCreditImportService {
         }
     }
 
-    private YearMonth resolverPeriodoCorte() {
-        return YearMonth.now(ZONA_NEGOCIO).minusMonths(1);
+    private YearMonth resolverPeriodoCorte(String valor) {
+        if (valor == null || valor.trim().isEmpty()) throw new IllegalArgumentException("Selecciona el mes de corte del archivo.");
+        try {
+            YearMonth corte = YearMonth.parse(valor.trim());
+            if (!corte.isBefore(YearMonth.now(ZONA_NEGOCIO))) throw new IllegalArgumentException("El corte debe corresponder a un mes cerrado.");
+            return corte;
+        } catch (DateTimeParseException e) { throw new IllegalArgumentException("Selecciona un corte válido (AAAA-MM)."); }
     }
 
 
@@ -1233,15 +1306,45 @@ public class FemprobienCreditImportService {
         }
 
 
-        jdbcTemplate.update(
+        if (!columnasTabla.containsKey("fecha_corte_saldo")
+                || !columnasTabla.containsKey("fecha_importacion_saldo")) {
+            throw new IllegalStateException(
+                    "La tabla no contiene las columnas de trazabilidad."
+            );
+        }
+
+        Object fechaCorte = datos.get("fecha_corte_saldo");
+        Object fechaProceso = datos.get("fecha_importacion_saldo");
+
+        if (fechaCorte == null || fechaProceso == null) {
+            throw new IllegalArgumentException(
+                    "Faltan las fechas del corte y de importacion."
+            );
+        }
+
+
+        int filasActualizadas = jdbcTemplate.update(
                 "UPDATE FEMPROBIEN.dbo.tblAporteCredito "
                         + "SET ["
                         + columnaValorPagar
-                        + "] = ? "
-                        + "WHERE id = ?",
+                        + "] = ?, "
+                        + "fecha_corte_saldo = ?, "
+                        + "fecha_importacion_saldo = ? "
+                        + "WHERE id = ? AND (fecha_corte_saldo IS NULL OR fecha_corte_saldo <= ?)",
                 valorPagar,
-                id
+                fechaCorte,
+                fechaProceso,
+                id, fechaCorte
         );
+
+        if (filasActualizadas == 0 && Integer.valueOf(1).equals(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM FEMPROBIEN.dbo.tblAporteCredito WHERE id = ? AND fecha_corte_saldo > ?",
+                new Object[]{id, fechaCorte}, Integer.class))) return; // Solo se amplía el histórico; no se retrocede el saldo vigente.
+        if (filasActualizadas != 1) {
+            throw new IllegalStateException(
+                    "No se actualizo un unico credito para el ID " + id
+            );
+        }
     }
 
     private Map<String, Object> construirRespuestaValidacion(Analisis analisis) {
@@ -1869,6 +1972,7 @@ public class FemprobienCreditImportService {
         Integer plazo;
         BigDecimal valorCuota;
         BigDecimal saldoCorte;
+        Map<LocalDate, BigDecimal> saldosHistoricos = new LinkedHashMap<>();
         boolean asociadoEncontrado;
         Boolean activoAsociado;
         LocalDate fechaRetiroAsociado;

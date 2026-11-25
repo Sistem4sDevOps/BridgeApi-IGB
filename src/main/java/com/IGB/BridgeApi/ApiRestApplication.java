@@ -6,7 +6,7 @@ import org.springframework.boot.autoconfigure.web.servlet.ServletWebServerFactor
 
 @SpringBootApplication(exclude = {ServletWebServerFactoryAutoConfiguration.class})
 public class ApiRestApplication {
-	public static void main(String[] args) {
-		SpringApplication.run(ApiRestApplication.class, args);
-	}
+    public static void main(String[] args) {
+        SpringApplication.run(ApiRestApplication.class, args);
+    }
 }

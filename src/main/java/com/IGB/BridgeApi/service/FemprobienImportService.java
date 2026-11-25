@@ -2584,7 +2584,7 @@ public class FemprobienImportService {
         agregarSiExiste(
                 datos,
                 columnasDb,
-                "nom_aso",
+                "nombre",
                 fila.nombre
         );
 

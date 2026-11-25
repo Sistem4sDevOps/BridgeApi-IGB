@@ -5,6 +5,8 @@ import com.IGB.BridgeApi.dto.CreditStatus;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
@@ -41,7 +43,33 @@ public class FemprobienCreditService {
         this.simuladorService = simuladorService;
     }
 
-    public synchronized Map<String, Object> crearSolicitud(
+    /** El registro y sus archivos se confirman juntos; una carga fallida revierte SQL. */
+    public synchronized Map<String, Object> crearSolicitudConArchivos(
+            String codAsp, Map<String, Object> datos, String usuario,
+            MultipartFile firma, MultipartFile huella, MultipartFile firma1,
+            MultipartFile huella1, MultipartFile firma2, MultipartFile huella2) {
+        if (datos == null) throw new IllegalArgumentException("No se recibió información de la solicitud.");
+        if (!tieneArchivo(firma) || !tieneArchivo(huella)) {
+            throw new IllegalArgumentException("Debe adjuntar firma y huella del solicitante.");
+        }
+        validarArchivosDeudoresPorMonto(datos, firma1, huella1);
+        Map<String, Object> solicitud = new HashMap<>(datos);
+        for (String campo : new String[]{"firma_solicitante", "huella_solicitante", "firma_deudor1", "huella_deudor1", "firma_deudor2", "huella_deudor2"}) {
+            solicitud.remove(campo); solicitud.remove("fecha_" + campo);
+        }
+        if (jdbcTemplate.getDataSource() == null) throw new IllegalStateException("No se encontró el DataSource de SQL Server.");
+        return new TransactionTemplate(new DataSourceTransactionManager(jdbcTemplate.getDataSource())).execute(status -> {
+            Map<String, Object> response = crearSolicitud(codAsp, solicitud, usuario);
+            try {
+                guardarArchivosCredito(toInteger(response.get("numero_solicitud")), firma, huella,
+                        firma1, huella1, firma2, huella2, usuario);
+            } catch (RuntimeException e) { throw e; }
+            catch (Exception e) { throw new IllegalStateException("No se creó la solicitud porque falló la carga de firma y huella.", e); }
+            return response;
+        });
+    }
+
+    private Map<String, Object> crearSolicitud(
             String codAsp,
             Map<String, Object> datos,
             String usuario) {

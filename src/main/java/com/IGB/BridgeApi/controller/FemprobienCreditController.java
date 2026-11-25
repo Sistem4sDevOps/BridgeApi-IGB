@@ -36,45 +36,31 @@ public class FemprobienCreditController {
        POST
        /femprobien/creditos/asociados/{codAsp}/solicitudes
        ========================================================= */
-    @PostMapping("/asociados/{codAsp}/solicitudes")
-    public ResponseEntity<?> crearSolicitud(
-            @PathVariable String codAsp,
-            @RequestBody Map<String, Object> datos,
-            @RequestHeader(value = "X-Employee", required = false)
-            String usuarioHeader) {
-
-        try {
-
-            String usuario = usuarioHeader;
-
-            if ((usuario == null || usuario.trim().isEmpty())
-                    && datos.get("usuario") != null) {
-
-                usuario = datos.get("usuario").toString();
-            }
-
-            datos.remove("usuario");
-
-            return ResponseEntity
-                    .status(HttpStatus.CREATED)
-                    .body(
-                            creditService.crearSolicitud(
-                                    codAsp,
-                                    datos,
-                                    usuario
-                            )
-                    );
-
-        } catch (IllegalArgumentException e) {
-            return badRequest(e.getMessage());
-        } catch (Exception e) {
-            return internalError(
-                    "Error creando solicitud de crédito.",
-                    e
-            );
-        }
+    @PostMapping(value = "/asociados/{codAsp}/solicitudes", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> crearSolicitud(@PathVariable String codAsp, @RequestBody Map<String, Object> datos,
+            @RequestHeader(value = "X-Employee", required = false) String usuarioHeader) {
+        return badRequest("Debe enviar los datos junto con firma y huella. Actualice la página e intente nuevamente.");
     }
 
+    @PostMapping(value = "/asociados/{codAsp}/solicitudes", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> crearSolicitudConArchivos(@PathVariable String codAsp,
+            @RequestPart("datos") Map<String, Object> datos,
+            @RequestParam(value = "firmaSolicitante", required = false) MultipartFile firma,
+            @RequestParam(value = "huellaSolicitante", required = false) MultipartFile huella,
+            @RequestParam(value = "firmaDeudor1", required = false) MultipartFile firma1,
+            @RequestParam(value = "huellaDeudor1", required = false) MultipartFile huella1,
+            @RequestParam(value = "firmaDeudor2", required = false) MultipartFile firma2,
+            @RequestParam(value = "huellaDeudor2", required = false) MultipartFile huella2,
+            @RequestHeader(value = "X-Employee", required = false) String usuarioHeader) {
+        try {
+            String usuario = usuarioHeader;
+            if ((usuario == null || usuario.trim().isEmpty()) && datos.get("usuario") != null) usuario = datos.get("usuario").toString();
+            datos.remove("usuario");
+            return ResponseEntity.status(HttpStatus.CREATED).body(creditService.crearSolicitudConArchivos(
+                    codAsp, datos, usuario, firma, huella, firma1, huella1, firma2, huella2));
+        } catch (IllegalArgumentException e) { return badRequest(e.getMessage()); }
+        catch (Exception e) { return internalError("No se creó la solicitud: no fue posible completar sus datos y archivos.", e); }
+    }
 
     @GetMapping("/solicitudes")
     public ResponseEntity<?> listarSolicitudes(

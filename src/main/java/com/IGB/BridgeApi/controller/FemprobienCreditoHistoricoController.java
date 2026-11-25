@@ -1,6 +1,9 @@
 package com.IGB.BridgeApi.controller;
 
 import com.IGB.BridgeApi.service.FemprobienCreditoHistoricoService;
+import com.IGB.BridgeApi.service.FemprobienEstadoCuentaCreditoService;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,10 +17,12 @@ import java.util.Map;
 public class FemprobienCreditoHistoricoController {
 
     private final FemprobienCreditoHistoricoService service;
+    private final FemprobienEstadoCuentaCreditoService estadoCuenta;
 
 
     public FemprobienCreditoHistoricoController(
-            FemprobienCreditoHistoricoService service) {
+            FemprobienCreditoHistoricoService service, FemprobienEstadoCuentaCreditoService estadoCuenta) {
+        this.estadoCuenta = estadoCuenta;
 
         this.service =
                 service;
@@ -124,6 +129,23 @@ public class FemprobienCreditoHistoricoController {
         }
     }
 
+
+    @GetMapping("/historico/detalle/{id}/estado-cuenta")
+    public ResponseEntity<?> descargarEstadoCuenta(@PathVariable Integer id) {
+        if (id == null || id <= 0) { return badRequest("El id del crédito es obligatorio."); }
+        try {
+            byte[] pdf = estadoCuenta.generar(id);
+            return ResponseEntity.ok().contentType(MediaType.APPLICATION_PDF)
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"estado-cuenta-credito-" + id + ".pdf\"")
+                    .header(HttpHeaders.CACHE_CONTROL, "no-store").contentLength(pdf.length).body(pdf);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(java.util.Collections.singletonMap("message", e.getMessage()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(java.util.Collections.singletonMap("message", "No fue posible generar el estado de cuenta del crédito."));
+        }
+    }
 
     private ResponseEntity<?> badRequest(
             String message) {

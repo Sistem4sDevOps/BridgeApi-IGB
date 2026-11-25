@@ -183,7 +183,7 @@ public class FemprobienImportController {
 
        POST /femprobien/importacion/creditos/validar
 
-       - Detecta automáticamente el mes anterior.
+       - Usa el mes cerrado seleccionado por el usuario.
        - NO modifica tblAporteCredito.
        - NO modifica la estructura SQL.
        ========================================================= */
@@ -199,7 +199,7 @@ public class FemprobienImportController {
                     value = "usuario",
                     required = false
             )
-            String usuario) {
+            String usuario, @RequestParam("periodo") String periodo) {
 
         try {
 
@@ -210,7 +210,7 @@ public class FemprobienImportController {
             Map<String, Object> resultado =
                     femprobienCreditImportService
                             .validarArchivo(
-                                    archivo
+                                    archivo, periodo
                             );
 
             return ResponseEntity.ok(
@@ -262,7 +262,7 @@ public class FemprobienImportController {
                     value = "usuario",
                     required = false
             )
-            String usuario) {
+            String usuario, @RequestParam("periodo") String periodo) {
 
         try {
 
@@ -275,7 +275,7 @@ public class FemprobienImportController {
                     femprobienCreditImportService
                             .procesarArchivo(
                                     archivo,
-                                    usuarioValidado
+                                    usuarioValidado, periodo
                             );
 
             return ResponseEntity.ok(

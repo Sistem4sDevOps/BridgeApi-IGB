@@ -32,6 +32,21 @@ public class FemprobienSimuladorController {
         } catch(IllegalArgumentException | ArithmeticException e) { return error(400,"Ingrese monto y plazo válidos y una frecuencia mensual o quincenal."); }
         catch(Exception e) { return error(503,"No fue posible simular. Verifique la configuración de la tasa en SQL Server."); }
     }
+
+    /** Escenario de la plantilla Excel, independiente de tasa vigente y solicitud. */
+    @PostMapping("/escenario")
+    public ResponseEntity<?> escenario(@RequestBody Map<String,Object> body) {
+        try {
+            return ResponseEntity.ok(simulador.simularEscenarioExcel(
+                    decimal(body.get("monto")), decimal(body.get("tna")),
+                    decimal(body.get("anios")), String.valueOf(body.get("frecuencia"))));
+        } catch (IllegalArgumentException | ArithmeticException e) {
+            return error(400, e.getMessage());
+        } catch (Exception e) {
+            return error(503, "No fue posible generar el escenario financiero.");
+        }
+    }
+
     private BigDecimal decimal(Object valor) { if(valor==null)throw new IllegalArgumentException("Campo obligatorio."); return new BigDecimal(valor.toString()); }
     private ResponseEntity<?> error(int status,String message) { Map<String,Object> r=new HashMap<>();r.put("message",message);return ResponseEntity.status(status).body(r); }
 }

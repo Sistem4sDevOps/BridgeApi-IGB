@@ -222,7 +222,12 @@ public class FemprobienCreditoHistoricoService {
         }
 
 
-        return resultado.get(0);
+        Map<String, Object> credito = resultado.get(0);
+        credito.put("saldos", jdbcTemplate.queryForList(
+                "SELECT periodo, saldo, CASE WHEN DATEDIFF(MONTH, LAG(periodo) OVER (ORDER BY periodo), periodo) = 1 " +
+                        "THEN LAG(saldo) OVER (ORDER BY periodo) - saldo END AS variacion_capital " +
+                        "FROM FEMPROBIEN.dbo.tblCreditoSaldoHistorico WHERE id_credito = ? ORDER BY periodo", id));
+        return credito;
     }
 
     private String limpiarTexto(
